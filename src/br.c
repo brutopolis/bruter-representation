@@ -267,7 +267,7 @@ List* parse(void *_context, char *cmd)
         {
             if (result->size <= 0)
             {
-                buxu_error("%s has no previous value", str);
+                printf("BRUTER_ERROR:%s has no previous value\n", str);
                 list_push(result, (Value){.i = -1});
             }
             else 
@@ -286,7 +286,7 @@ List* parse(void *_context, char *cmd)
             }
             else 
             {
-                buxu_error("variable %s not found", str);
+                printf("BRUTER_ERROR: variable %s not found\n", str);
                 list_push(result, (Value){.i = -1});
             }
         }
