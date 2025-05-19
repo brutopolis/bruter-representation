@@ -11,22 +11,24 @@
 #include <time.h>
 #include <stddef.h>
 
-#define data(index) context->data[index]
-#define data_s(index) &context->data[index].u8[0]
-#define data_l(index) context->keys[index]
+#define BR_VERSION "0.1.3"
+
+#define DATA(index) context->data[index]
+#define DATA_S(index) &context->data[index].u8[0]
+#define DATA_L(index) context->keys[index]
 
 // we always use the first argument as the function pointer
 // the second argument is the first argument and so on
-#define arg(index) context->data[args->data[index+1].i]
-#define arg_s(index) &context->data[args->data[index+1].i].u8[0]
-#define arg_i(index) args->data[index+1].i
+#define ARG(index) context->data[args->data[index+1].i]
+#define ARG_S(index) &context->data[args->data[index+1].i].u8[0]
+#define ARG_I(index) args->data[index+1].i
 
-#define init(name) void init_##name(List *context)
+#define INIT(name) void init_##name(List *context)
 
-#define add_function(context, name, func) \
+#define ADD_FUNCTION(context, name, func) \
 ({ \
     Int index = new_var(context, name); \
-    data(index).p = func; \
+    DATA(index).p = func; \
     index; \
 })
 
