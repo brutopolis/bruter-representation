@@ -26,6 +26,8 @@
 
 - `{}` = string delimiter
 
+- `[]` = direct access
+
 - `;` = end of command separator
 
 - `@` = label operator
@@ -44,7 +46,9 @@
     command 0.000000;
     command 0;
     command value @label;
+    [0] ...;
+    [(command ...) variable] ...;
 
-  # BRUTER
+# BRUTER
 
-  you might want to know how BRUTER works: https://github.com/jardimdanificado/bruter
+you might want to know how BRUTER works: https://github.com/jardimdanificado/bruter
