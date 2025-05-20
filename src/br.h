@@ -22,6 +22,7 @@
 #define ARG(index) context->data[args->data[index+1].i]
 #define ARG_S(index) &context->data[args->data[index+1].i].u8[0]
 #define ARG_I(index) args->data[index+1].i
+#define ARG_COUNT() args->size - 1
 
 #define INIT(name) void init_##name(List *context)
 
