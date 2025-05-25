@@ -14,13 +14,11 @@
 #define BR_VERSION "1.0.4"
 
 #define DATA(index) context->data[index]
-#define DATA_P(index) &context->data[index].u8[0]
 #define DATA_L(index) context->keys[index]
 
 // we always use the first argument as the function pointer index in the context
 // the second argument is the first argument and so on
 #define ARG(arg_index) context->data[args->data[arg_index+1].i]
-#define ARG_P(arg_index) &context->data[args->data[arg_index+1].i].u8[0]
 #define ARG_L(arg_index) context->keys[args->data[arg_index+1].i]
 #define ARG_I(arg_index) args->data[arg_index+1].i
 #define ARG_COUNT() args->size - 1
@@ -39,8 +37,6 @@ List*   str_split(const char *str, char delim);
 char*   str_format(const char *format, ...);
 
 Int     new_var(List *context, const char* key);
-Int     new_block(List *context, Int size, const char* key);
-Int     new_string(List *context, const char* str, const char* key);
 
 Value   parse_number(const char *str);
 List*   parse(List *context, List *parser, const char *cmd);

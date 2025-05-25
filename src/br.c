@@ -116,6 +116,38 @@ List* str_space_split(const char *str)
             list_push(splited, (Value){.s = tmp}, NULL);
             i = j + 1;
         }
+        else if (str[i] == '"') // with strchr
+        {
+            char *next_quote = strchr(str + i + 1, '"');
+            if (next_quote != NULL)
+            {
+                char *tmp = str_nduplicate(str + i, next_quote - str + 1);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                i = next_quote - str + 1;
+            }
+            else
+            {
+                char *tmp = str_nduplicate(str + i, strlen(str) - i);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                break;
+            }
+        }
+        else if (str[i] == '\'') // with strchr
+        {
+            char *next_quote = strchr(str + i + 1, '\'');
+            if (next_quote != NULL)
+            {
+                char *tmp = str_nduplicate(str + i, next_quote - str + 1);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                i = next_quote - str + 1;
+            }
+            else
+            {
+                char *tmp = str_nduplicate(str + i, strlen(str) - i);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                break;
+            }
+        }
         else if (isspace(str[i]))
         {
             i++;
@@ -149,7 +181,6 @@ List* str_split(const char *str, char delim)
     while (str[i] != '\0')
     {
         if (str[i] == '(' && (i == 0 || str[i-1] != '\\') && !curly && !bracket)
-        
         {
             recursion++;
         }
@@ -172,6 +203,38 @@ List* str_split(const char *str, char delim)
         else if (str[i] == ']' && (i == 0 || str[i-1] != '\\') && !recursion && !curly)
         {
             bracket--;
+        }
+        else if (str[i] == '"' && (i == 0 || str[i-1] != '\\') && !recursion && !curly && !bracket)
+        {
+            char *next_quote = strchr(str + i + 1, '"');
+            if (next_quote != NULL)
+            {
+                char* tmp = str_nduplicate(str + i, next_quote - str + 1);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                i = next_quote - str + 1;
+            }
+            else
+            {
+                char* tmp = str_nduplicate(str + i, strlen(str) - i);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                break;
+            }
+        }
+        else if (str[i] == '\'' && (i == 0 || str[i-1] != '\\') && !recursion && !curly && !bracket)
+        {
+            char *next_quote = strchr(str + i + 1, '\'');
+            if (next_quote != NULL)
+            {
+                char* tmp = str_nduplicate(str + i, next_quote - str + 1);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                i = next_quote - str + 1;
+            }
+            else
+            {
+                char* tmp = str_nduplicate(str + i, strlen(str) - i);
+                list_push(splited, (Value){.s = tmp}, NULL);
+                break;
+            }
         }
 
 
@@ -200,35 +263,6 @@ Int new_var(List *context, const char* key)
     _value.p = NULL;
     list_push(context, _value, key);
     return context->size-1;
-}
-
-Int new_block(List *context, Int size, const char* key)
-{
-    if (!size)
-    {
-        return -1;
-    }
-
-    list_push(context, (Value){.i = 0}, key);
-
-    Int index = context->size-1;
-    
-    for (Int i = 0; i < size-1; i++)
-    {
-        list_push(context, (Value){.i = 0}, NULL);
-    }
-    
-    return index;
-}
-
-Int new_string(List *context, const char* str, const char* key)
-{
-    Int len = strlen(str);
-    Int blocks = (len + 1 + sizeof(void*) - 1) / sizeof(void*);
-    Int var = new_block(context, blocks, key);
-    memcpy(&context->data[var].u8[0], str, len);
-    context->data[var].u8[len] = '\0';
-    return var;
 }
 
 Value parse_number(const char *str)
@@ -274,9 +308,25 @@ PARSER_STEP(parser_string)
 {
     if (str[0] == '{')
     {
+        char* new_str = str_nduplicate(str + 1, strlen(str) - 2);
+        
+        // lets see if there is a variable called "allocs"
+        Int found = list_find(context, (Value){.p = NULL}, "allocs");
+        if (found != -1 && context->data[found].p != NULL)
+        {
+            list_push(context->data[found].p, (Value){.s = new_str}, NULL);
+        }
+        else 
+        {
+            Int index = new_var(context, "allocs");
+            context->data[index].p = list_init(0, false);
+            list_push(context->data[index].p, (Value){.s = new_str}, NULL);
+        }
+
         Int len = strlen(str);
-        str[len - 1] = '\0';
-        list_push(result, (Value){.i = new_string(context, str + 1, NULL)}, NULL);
+        Int index = new_var(context, NULL);
+        context->data[index].p = new_str;
+        list_push(result, (Value){.i = index}, NULL);
         return true;
     }
     return false;

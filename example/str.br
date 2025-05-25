@@ -1,6 +1,5 @@
-[0] {std};
-ignore 0 @abc;
-[abc] {string};
+load {std};
+load {string};
 load {io};
 
 ignore {abcdefghijklmnopqrstuvwxyz} @str0;
