@@ -257,10 +257,120 @@ Value parse_number(const char *str)
     return result;
 }
 
-// Parser functions
-List* parse(void *_context, const char *cmd) 
+PARSER_STEP(parser_expression)
 {
-    List* context = (List*)_context;
+    if (str[0] == '(')
+    {
+        char* temp = str + 1;
+        temp[strlen(temp) - 1] = '\0';
+        Int res = eval(context, parser, temp);
+        list_push(result, (Value){.i = res}, NULL);
+        return true;
+    }
+    return false;
+}
+
+PARSER_STEP(parser_string)
+{
+    if (str[0] == '{')
+    {
+        Int len = strlen(str);
+        str[len - 1] = '\0';
+        list_push(result, (Value){.i = new_string(context, str + 1, NULL)}, NULL);
+        return true;
+    }
+    return false;
+}
+
+PARSER_STEP(parser_number)
+{
+    if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
+    {
+        Int index = new_var(context, NULL);
+        context->data[index] = parse_number(str);
+        list_push(result, (Value){.i = index}, NULL);
+        return true;
+    }
+    return false;
+}
+
+PARSER_STEP(parser_label)
+{
+    if (str[0] == '@') // label
+    {
+        if (result->size <= 0)
+        {
+            printf("BRUTER_ERROR:%s has no previous value\n", str);
+        }
+        else if (result->data[result->size - 1].i == -1)
+        {
+            printf("BRUTER_ERROR:%s previous value is not a variable\n", str);
+        }
+        else 
+        {
+            context->keys[result->data[result->size - 1].i] = str_duplicate(str + 1);
+            // thats it, we dont need to push anything to the result
+        }
+        return true;
+    }
+    return false;
+}
+
+PARSER_STEP(parser_direct_access)
+{
+    if (str[0] == '[') // direct access
+    {
+        char* temp = str_nduplicate(str + 1, strlen(str) - 2);
+        List* bracket_args = parse(context, parser, temp);
+        if (bracket_args->size > 0)
+        {
+            list_push(result, DATA(list_pop(bracket_args).i), NULL);
+        }
+        else 
+        {
+            printf("BRUTER_ERROR: empty brackets\n");
+            list_push(result, (Value){.i = -1}, NULL);
+        }
+        list_free(bracket_args);
+        free(temp);
+        return true;
+    }
+    return false;
+}
+
+PARSER_STEP(parser_variable)
+{
+    Int index = list_find(context, (Value){.p = NULL}, str);
+    
+    if (index != -1)
+    {
+        list_push(result, (Value){.i = index}, NULL);
+        return true;
+    }
+    else 
+    {
+        printf("BRUTER_ERROR: variable %s not found\n", str);
+        list_push(result, (Value){.i = -1}, NULL);
+        return false;
+    }
+}
+
+// SKETCH
+List* basic_parser()
+{
+    List *_parser = list_init(8, true);
+    list_push(_parser, (Value){.p = parser_expression}, "expression");
+    list_push(_parser, (Value){.p = parser_string}, "string");
+    list_push(_parser, (Value){.p = parser_number}, "number");
+    list_push(_parser, (Value){.p = parser_label}, "label");
+    list_push(_parser, (Value){.p = parser_direct_access}, "direct_access");
+    list_push(_parser, (Value){.p = parser_variable}, "variable");
+    return _parser;
+}
+
+// Parser functions
+List* parse(List *context, List* parser, const char *cmd) 
+{
     List *result = list_init(sizeof(void*), false);
     
     List *splited = str_space_split(cmd);
@@ -273,71 +383,16 @@ List* parse(void *_context, const char *cmd)
 
     for (i = 0; i < splited->size; i++)
     {
-        str = splited->data[i].s;        
-        if (str[0] == '(')
-        {
-            char* temp = str + 1;
-            temp[strlen(temp) - 1] = '\0';
-            Int res = eval(context, temp);
-            list_push(result, (Value){.i = res}, NULL);
-        }
-        else if (str[0] == '{') // string
-        {
-            Int len = strlen(str);
-            str[len - 1] = '\0';
+        str = splited->data[i].s;
 
-            list_push(result, (Value){.i = new_string(context, str + 1, NULL)}, NULL);
-        }
-        else if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
+        for (Int j = 0; j < parser->size; j++)
         {
-            Int index = new_var(context, NULL);
-            context->data[index] = parse_number(str);
-            list_push(result, (Value){.i = index}, NULL);
-        }
-        else if (str[0] == '@') // label
-        {
-            if (result->size <= 0)
+            ParserStep step = parser->data[j].p;
+            if (step(context, parser, result, i, j, str))
             {
-                printf("BRUTER_ERROR:%s has no previous value\n", str);
-            }
-            else if (result->data[result->size - 1].i == -1)
-            {
-                printf("BRUTER_ERROR:%s previous value is not a variable\n", str);
-            }
-            else 
-            {
-                context->keys[result->data[result->size - 1].i] = str_duplicate(str + 1);
-                // thats it, we dont need to push anything to the result
-            }
-        }
-        else if (str[0] == '[') // direct access
-        {
-            char* temp = str_nduplicate(str + 1, strlen(str) - 2);
-            List* bracket_args = parse(_context, temp);
-            if (bracket_args->size > 0)
-            {
-                list_push(result, DATA(list_pop(bracket_args).i), NULL);
-            }
-            else 
-            {
-                printf("BRUTER_ERROR: empty brackets\n");
-                list_push(result, (Value){.i = -1}, NULL);
-            }
-            list_free(bracket_args);
-            free(temp);
-        }
-        else
-        {
-            Int index = list_find(context, (Value){.p = NULL}, str);
-            
-            if (index != -1)
-            {
-                list_push(result, (Value){.i = index}, NULL);
-            }
-            else 
-            {
-                printf("BRUTER_ERROR: variable %s not found\n", str);
-                list_push(result, (Value){.i = -1}, NULL);
+                // if the step returns true, means it was successful
+                // we can break the loop and continue to the next string
+                break;
             }
         }
 
@@ -348,7 +403,7 @@ List* parse(void *_context, const char *cmd)
     return result;
 }
 
-List* compile_code(List *context, const char *cmd) 
+List* compile_code(List *context, List *parser, const char *cmd) 
 {
     List *splited = str_split(cmd, ';');
     List *compiled = list_init(sizeof(void*), false);
@@ -379,7 +434,7 @@ List* compile_code(List *context, const char *cmd)
     for (Int i = 0; i < splited->size; i++) 
     {
         str = splited->data[i].s;
-        List *args = parse(context, str);
+        List *args = parse(context, parser, str);
 
         list_push(compiled, (Value){.p = args}, NULL);
         free(str);
@@ -404,7 +459,7 @@ Int compiled_call(List *context, List *compiled)
     return result;
 }
 
-List* compile_and_call(List *context, const char *cmd)
+List* compile_and_call(List *context, List* parser, const char *cmd)
 {
     List *compiled = list_init(sizeof(void*), false);
     List *splited = str_split(cmd, ';');
@@ -413,7 +468,7 @@ List* compile_and_call(List *context, const char *cmd)
     for (Int i = 0; i < splited->size; i++) 
     {
         str = splited->data[i].s;
-        List *args = parse(context, str);
+        List *args = parse(context, parser, str);
         result = list_call(context, args).i; // .i because we are using contextual call
         list_push(compiled, (Value){.p = args}, NULL);
         free(str);
@@ -433,7 +488,7 @@ void compiled_free(List *compiled)
     list_free(compiled);
 }
 
-Int eval(List *context, const char *cmd)
+Int eval(List *context, List* parser, const char *cmd)
 {
     List *splited = str_split(cmd, ';');
 
@@ -465,7 +520,7 @@ Int eval(List *context, const char *cmd)
     for (Int i = 0; i < splited->size; i++)
     {        
         str = splited->data[i].s;
-        List *args = parse(context, str);
+        List *args = parse(context, parser, str);
         if (args->size == 0 || args->data[0].i == -1 || DATA(args->data[0].i).p == NULL)
         {
             printf("BRUTER_ERROR: empty command or invalid function\n");

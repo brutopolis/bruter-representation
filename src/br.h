@@ -27,6 +27,11 @@
 
 #define INIT(name) void init_##name(List *context)
 
+#define PARSER_STEP(name) bool name(List *context, List *parser, List *result, Int current_word, Int current_step, char *str)
+
+// step type
+typedef bool (*ParserStep)(List *context, List *parser, List *result, Int current_word, Int current_step, char *str);
+
 char*   str_duplicate(const char *str);
 char*   str_nduplicate(const char *str, UInt size);
 List*   str_space_split(const char *str);
@@ -38,11 +43,13 @@ Int     new_block(List *context, Int size, const char* key);
 Int     new_string(List *context, const char* str, const char* key);
 
 Value   parse_number(const char *str);
-List*   parse(void *_context, const char *cmd);
-Int     eval(List *context, const char *cmd);
+List*   parse(List *context, List *parser, const char *cmd);
+Int     eval(List *context, List *parser, const char *cmd);
 
-List*   compile_code(List *context, const char *code);
-List*   compile_and_call(List *context, const char *cmd);
+List*   basic_parser();
+
+List*   compile_code(List *context, List* parser, const char *code);
+List*   compile_and_call(List *context, List* parser, const char *cmd);
 Int     compiled_call(List *context, List *compiled);
 void    compiled_free(List *compiled);
 
@@ -52,6 +59,5 @@ static inline Int add_function(List *context, const char *name, void *func)
     DATA(index).p = func;
     return index;
 }
-
 
 #endif
