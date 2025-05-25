@@ -1,6 +1,10 @@
 
 # br changelog https://github.com/brutopolis/br
 
+(25/05/2025) - version 1.0.4
+
+- ARG_S and DATA_S renamed to ARG_P and DATA_P;
+
 (19/05/2025) - version 1.0.3
 
 - all macros are now uppercase;

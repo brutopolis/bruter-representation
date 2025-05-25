@@ -49,7 +49,7 @@ char* str_format(const char *format, ...)
     return str;
 }
 
-List* str_space_split(char *str)
+List* str_space_split(const char *str)
 {
     List *splited = list_init(sizeof(void*), false);
     
@@ -135,7 +135,7 @@ List* str_space_split(char *str)
 }
 
 
-List* str_split(char *str, char delim)
+List* str_split(const char *str, char delim)
 {
     List *splited = list_init(sizeof(void*), false);
     
@@ -194,7 +194,7 @@ List* str_split(char *str, char delim)
 
 
 // var new 
-Int new_var(List *context, char* key)
+Int new_var(List *context, const char* key)
 {
     Value _value;
     _value.p = NULL;
@@ -202,7 +202,7 @@ Int new_var(List *context, char* key)
     return context->size-1;
 }
 
-Int new_block(List *context, Int size, char* key)
+Int new_block(List *context, Int size, const char* key)
 {
     if (!size)
     {
@@ -221,7 +221,7 @@ Int new_block(List *context, Int size, char* key)
     return index;
 }
 
-Int new_string(List *context, char* str, char* key)
+Int new_string(List *context, const char* str, const char* key)
 {
     Int len = strlen(str);
     Int blocks = (len + 1 + sizeof(void*) - 1) / sizeof(void*);
@@ -231,7 +231,7 @@ Int new_string(List *context, char* str, char* key)
     return var;
 }
 
-Value parse_number(char *str)
+Value parse_number(const char *str)
 {
     Value result;
     if (str[0] == '0' && str[1] == 'x') // hex
@@ -258,7 +258,7 @@ Value parse_number(char *str)
 }
 
 // Parser functions
-List* parse(void *_context, char *cmd) 
+List* parse(void *_context, const char *cmd) 
 {
     List* context = (List*)_context;
     List *result = list_init(sizeof(void*), false);
@@ -348,7 +348,7 @@ List* parse(void *_context, char *cmd)
     return result;
 }
 
-List* compile_code(List *context, char *cmd) 
+List* compile_code(List *context, const char *cmd) 
 {
     List *splited = str_split(cmd, ';');
     List *compiled = list_init(sizeof(void*), false);
@@ -404,7 +404,7 @@ Int compiled_call(List *context, List *compiled)
     return result;
 }
 
-List* compile_and_call(List *context, char *cmd)
+List* compile_and_call(List *context, const char *cmd)
 {
     List *compiled = list_init(sizeof(void*), false);
     List *splited = str_split(cmd, ';');
@@ -433,7 +433,7 @@ void compiled_free(List *compiled)
     list_free(compiled);
 }
 
-Int eval(List *context, char *cmd)
+Int eval(List *context, const char *cmd)
 {
     List *splited = str_split(cmd, ';');
 
