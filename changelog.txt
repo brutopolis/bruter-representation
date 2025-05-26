@@ -6,6 +6,7 @@
 - ARG_S and DATA_S removed;
 - experimental modular parser, in which every step is a function in a list;
 - strings are auto allocated in the list located at "allocs" label and are freed at the end of the program(if on buxu, else, you need to call a function to do it);
+- new inline functions get_parser and get_allocs;
 
 (19/05/2025) - version 1.0.3
 

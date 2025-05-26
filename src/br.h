@@ -49,6 +49,30 @@ List*   compile_and_call(List *context, List* parser, const char *cmd);
 Int     compiled_call(List *context, List *compiled);
 void    compiled_free(List *compiled);
 
+static inline List *get_parser(List *context)
+{
+    Int parser_index = list_find(context, VALUE(p, NULL), "parser");
+    if (parser_index == -1)
+    {
+        printf("BRUTER_ERROR: parser not found, using simple parser\n");
+        parser_index = new_var(context, "parser");
+        context->data[parser_index].p = basic_parser();
+    }
+    return context->data[parser_index].p;
+}
+
+static inline List *get_allocs(List *context)
+{
+    Int allocs_index = list_find(context, VALUE(p, NULL), "allocs");
+    if (allocs_index == -1)
+    {
+        printf("BRUTER_ERROR: allocs not found, creating it\n");
+        allocs_index = new_var(context, "allocs");
+        context->data[allocs_index].p = list_init(sizeof(Value), false);
+    }
+    return context->data[allocs_index].p;
+}
+
 static inline Int add_function(List *context, const char *name, void *func)
 {
     Int index = new_var(context, name);

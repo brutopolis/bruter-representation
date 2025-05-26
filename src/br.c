@@ -310,18 +310,8 @@ PARSER_STEP(parser_string)
     {
         char* new_str = str_nduplicate(str + 1, strlen(str) - 2);
         
-        // lets see if there is a variable called "allocs"
-        Int found = list_find(context, (Value){.p = NULL}, "allocs");
-        if (found != -1 && context->data[found].p != NULL)
-        {
-            list_push(context->data[found].p, (Value){.s = new_str}, NULL);
-        }
-        else 
-        {
-            Int index = new_var(context, "allocs");
-            context->data[index].p = list_init(0, false);
-            list_push(context->data[index].p, (Value){.s = new_str}, NULL);
-        }
+        List* _allocs = get_allocs(context);
+        list_push(_allocs, (Value){.p = new_str}, NULL);
 
         Int len = strlen(str);
         Int index = new_var(context, NULL);
