@@ -6,8 +6,6 @@ ignore {abcdefghijklmnopqrstuvwxyz} @str0;
 ignore {ABCDEFGHIJKLMNOPQRSTUVWXYZ} @str1;
 ls;
 ignore (string.concat str0 str1) @c;
-print.string {deleting};
-string.delete str0;
 ls;
 
 print.string (string.format {str1: %s\n} str1) @a;
