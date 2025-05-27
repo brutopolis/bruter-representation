@@ -13,9 +13,6 @@
 
 #define BR_VERSION "1.0.5"
 
-#define BR_DATA(index) context->data[index]
-#define BR_DATA_L(index) context->keys[index]
-
 // we always use the first argument as the function pointer index in the context
 // the second argument is the first argument and so on
 #define BR_ARG(arg_index) context->data[args->data[arg_index+1].i]
@@ -441,7 +438,7 @@ static inline BR_PARSER_STEP(parser_direct_access)
         BruterList* bracket_args = br_parse(context, parser, temp);
         if (bracket_args->size > 0)
         {
-            bruter_push(result, BR_DATA(bruter_pop(bracket_args).i), NULL);
+            bruter_push(result, bruter_get(context, bruter_pop(bracket_args).i), NULL);
         }
         else 
         {
@@ -611,25 +608,25 @@ static inline void br_free_context(BruterList *context)
     BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
     if (parser_index != -1) 
     {
-        bruter_free(BR_DATA(parser_index).p);
+        bruter_free(bruter_get(context, parser_index).p);
     }
 
     // lets check if there is a unused variable in the program
     BruterInt unused_index = bruter_find(context, BRUTER_VALUE(p, NULL), "unused");
     if (unused_index != -1) 
     {
-        bruter_free(BR_DATA(unused_index).p);
+        bruter_free(bruter_get(context, unused_index).p);
     }
 
     // lets check if there is a allocs variable in the program
     BruterInt allocs_index = bruter_find(context, BRUTER_VALUE(p, NULL), "allocs");
     if (allocs_index != -1) 
     {
-        while (((BruterList*)BR_DATA(allocs_index).p)->size > 0)
+        while (((BruterList*)bruter_get(context, allocs_index).p)->size > 0)
         {
-            free(bruter_pop((BruterList*)BR_DATA(allocs_index).p).p);
+            free(bruter_pop((BruterList*)bruter_get(context, allocs_index).p).p);
         }
-        bruter_free(BR_DATA(allocs_index).p);
+        bruter_free(bruter_get(context, allocs_index).p);
         context->data[allocs_index].p = NULL;
     }
     
@@ -669,7 +666,7 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
     {        
         str = splited->data[i].s;
         BruterList *args = br_parse(context, parser, str);
-        if (args->size == 0 || args->data[0].i == -1 || BR_DATA(args->data[0].i).p == NULL)
+        if (args->size == 0 || args->data[0].i == -1 || bruter_get(context, args->data[0].i).p == NULL)
         {
             printf("BR_ERROR: empty command or invalid function\n");
             free(str);
@@ -700,7 +697,7 @@ static inline BruterList *br_get_parser(BruterList *context)
     BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
     if (parser_index == -1)
     {
-        printf("BR_ERROR: parser not found, using simple parser\n");
+        printf("BR_WARN: parser not found, using simple parser\n");
         parser_index = br_new_var(context, "parser");
         context->data[parser_index].p = br_simple_parser();
     }
@@ -712,7 +709,7 @@ static inline BruterList *br_get_allocs(BruterList *context)
     BruterInt allocs_index = bruter_find(context, BRUTER_VALUE(p, NULL), "allocs");
     if (allocs_index == -1)
     {
-        printf("BR_ERROR: allocs not found, creating it\n");
+        printf("BR_WARN: allocs not found, creating it\n");
         allocs_index = br_new_var(context, "allocs");
         context->data[allocs_index].p = bruter_init(sizeof(BruterValue), false);
     }
@@ -724,7 +721,7 @@ static inline BruterList *br_get_unused(BruterList *context)
     BruterInt unused_index = bruter_find(context, BRUTER_VALUE(p, NULL), "unused");
     if (unused_index == -1)
     {
-        printf("BR_ERROR: unused not found, creating it\n");
+        printf("BR_WARN: unused not found, creating it\n");
         bruter_push(context, (BruterValue){.p = bruter_init(sizeof(BruterValue), false)}, "unused");
         unused_index = context->size - 1;
     }
@@ -734,7 +731,7 @@ static inline BruterList *br_get_unused(BruterList *context)
 static inline BruterInt br_add_function(BruterList *context, const char *name, void *func)
 {
     BruterInt index = br_new_var(context, name);
-    BR_DATA(index).p = func;
+    bruter_set(context, index, BRUTER_VALUE(p, func));
     return index;
 }
 
