@@ -5,21 +5,6 @@
 
 *`UNDER HEAVY DEVELOPMENT`*
 
-# Building instructions
-
-    # if you have bruter on your path;
-      # for shared library:
-        gcc -o libbr.so -shared -fPIC -O3 -lbruter br.c 
-      # for static library:
-        gcc -o libbr.a -c -O3 -lbruter br.c
-
-    # else if bruter is not on your path;
-      git clone https://github.com/brutopolis/bruter # -b experimental --depth 1
-        # for a shared library:
-          gcc -o libbr.so src/br.c bruter/src/bruter.c -shared -fPIC -O3 -Ibruter/src
-        # for a static library:
-          gcc -o libbr.a src/br.c bruter/src/bruter.c -c -O3 -Ibruter/src
-
 # Reserved
 
 - `()` = expression

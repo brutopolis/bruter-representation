@@ -1,14 +1,77 @@
-#include "br.h"
+#ifndef BR_H
+#define BR_H 1
+
+#include "bruter.h"
+
+#include <stdarg.h>
+#include <limits.h>
+#include <float.h>
+#include <ctype.h>
+#include <math.h>
+#include <time.h>
+#include <stddef.h>
+
+#define BR_VERSION "1.0.5"
+
+#define BR_DATA(index) context->data[index]
+#define BR_DATA_L(index) context->keys[index]
+
+// we always use the first argument as the function pointer index in the context
+// the second argument is the first argument and so on
+#define BR_ARG(arg_index) context->data[args->data[arg_index+1].i]
+#define BR_ARG_L(arg_index) context->keys[args->data[arg_index+1].i]
+#define BR_ARG_I(arg_index) args->data[arg_index+1].i
+#define BR_ARG_COUNT() args->size - 1
+
+#define BR_INIT(name) void init_##name(BruterList *context)
+
+#define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str)
+
+// step type
+typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str);
+
+static inline char*         br_str_duplicate(const char *str);
+static inline char*         br_str_nduplicate(const char *str, BruterUInt size);
+static inline BruterList*   br_str_space_split(const char *str);
+static inline BruterList*   br_str_split(const char *str, char delim);
+static inline char*         br_str_format(const char *format, ...);
+
+static inline BruterList*   br_simple_parser(); // returns a parser with the basic steps
+
+static inline BruterInt     br_new_var(BruterList *context, const char* key);
+
+static inline BruterValue   br_parser_number(const char *str);
+static inline BruterList*   br_parse(BruterList *context, BruterList *parser, const char *cmd);
+static inline BruterInt     br_eval(BruterList *context, BruterList *parser, const char *cmd);
+
+
+static inline BruterList*   br_compile_code(BruterList *context, BruterList* parser, const char *code);
+static inline BruterList*   br_compile_and_call(BruterList *context, BruterList* parser, const char *cmd);
+static inline BruterInt     br_compiled_call(BruterList *context, BruterList *compiled);
+static inline void          br_compiled_free(BruterList *compiled);
+
+static inline BruterList   *br_get_parser(BruterList *context);
+static inline BruterList   *br_get_allocs(BruterList *context);
+static inline BruterList   *br_get_unused(BruterList *context);
+
+static inline BruterInt     br_add_function(BruterList *context, const char *name, void *func);
+static inline void          br_free_context(BruterList *context);
+
+// functions definitions
+// functions definitions
+// functions definitions
+// functions definitions
+// functions definitions
 
 // string stuff
-char* str_duplicate(const char *str)
+static inline char* br_str_duplicate(const char *str)
 {
     BruterInt len = strlen(str);
     char *dup = (char*)malloc(len + 1);
     
     if (dup == NULL)
     {
-        printf("BRUTER_ERROR: failed to allocate memory for string duplication\n");
+        printf("BR_ERROR: failed to allocate memory for string duplication\n");
         exit(EXIT_FAILURE);
     }
     
@@ -16,13 +79,13 @@ char* str_duplicate(const char *str)
     return dup;
 }
 
-char* str_nduplicate(const char *str, BruterUInt n)
+static inline char* br_str_nduplicate(const char *str, BruterUInt n)
 {
     char *dup = (char*)malloc(n + 1);
     
     if (dup == NULL)
     {
-        printf("BRUTER_ERROR: failed to allocate memory for string duplication\n");
+        printf("BR_ERROR: failed to allocate memory for string duplication\n");
         exit(EXIT_FAILURE);
     }
     
@@ -31,7 +94,7 @@ char* str_nduplicate(const char *str, BruterUInt n)
     return dup;
 }
 
-char* str_format(const char *format, ...)
+static inline char* br_str_format(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -40,7 +103,7 @@ char* str_format(const char *format, ...)
     char *str = (char*)malloc(size + 1);
     if (str == NULL)
     {
-        printf("BRUTER_ERROR: failed to allocate memory for formatted string\n");
+        printf("BR_ERROR: failed to allocate memory for formatted string\n");
         exit(EXIT_FAILURE);
     }
     va_start(args, format);
@@ -49,7 +112,7 @@ char* str_format(const char *format, ...)
     return str;
 }
 
-BruterList* str_space_split(const char *str)
+static inline BruterList* br_str_space_split(const char *str)
 {
     BruterList *splited = bruter_init(sizeof(void*), false);
     
@@ -72,7 +135,7 @@ BruterList* str_space_split(const char *str)
                     count--;
                 }
             }
-            char *tmp = str_nduplicate(str + i, j - i + 1);
+            char *tmp = br_str_nduplicate(str + i, j - i + 1);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             i = j + 1;
         }
@@ -92,7 +155,7 @@ BruterList* str_space_split(const char *str)
                     count--;
                 }
             }
-            char *tmp = str_nduplicate(str + i, j - i + 1);
+            char *tmp = br_str_nduplicate(str + i, j - i + 1);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             i = j + 1;
         }
@@ -112,7 +175,7 @@ BruterList* str_space_split(const char *str)
                     count--;
                 }
             }
-            char *tmp = str_nduplicate(str + i, j - i + 1);
+            char *tmp = br_str_nduplicate(str + i, j - i + 1);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             i = j + 1;
         }
@@ -121,13 +184,13 @@ BruterList* str_space_split(const char *str)
             char *next_quote = strchr(str + i + 1, '"');
             if (next_quote != NULL)
             {
-                char *tmp = str_nduplicate(str + i, next_quote - str + 1);
+                char *tmp = br_str_nduplicate(str + i, next_quote - str + 1);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
-                char *tmp = str_nduplicate(str + i, strlen(str) - i);
+                char *tmp = br_str_nduplicate(str + i, strlen(str) - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
@@ -137,13 +200,13 @@ BruterList* str_space_split(const char *str)
             char *next_quote = strchr(str + i + 1, '\'');
             if (next_quote != NULL)
             {
-                char *tmp = str_nduplicate(str + i, next_quote - str + 1);
+                char *tmp = br_str_nduplicate(str + i, next_quote - str + 1);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
-                char *tmp = str_nduplicate(str + i, strlen(str) - i);
+                char *tmp = br_str_nduplicate(str + i, strlen(str) - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
@@ -159,7 +222,7 @@ BruterList* str_space_split(const char *str)
             {
                 j++;
             }
-            bruter_push(splited, (BruterValue) {.s = str_nduplicate(str + i, j - i)}, NULL);
+            bruter_push(splited, (BruterValue) {.s = br_str_nduplicate(str + i, j - i)}, NULL);
             i = j;
         }
     }
@@ -167,7 +230,7 @@ BruterList* str_space_split(const char *str)
 }
 
 
-BruterList* str_split(const char *str, char delim)
+static inline BruterList* br_str_split(const char *str, char delim)
 {
     BruterList *splited = bruter_init(sizeof(void*), false);
     
@@ -209,13 +272,13 @@ BruterList* str_split(const char *str, char delim)
             char *next_quote = strchr(str + i + 1, '"');
             if (next_quote != NULL)
             {
-                char* tmp = str_nduplicate(str + i, next_quote - str + 1);
+                char* tmp = br_str_nduplicate(str + i, next_quote - str + 1);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
-                char* tmp = str_nduplicate(str + i, strlen(str) - i);
+                char* tmp = br_str_nduplicate(str + i, strlen(str) - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
@@ -225,13 +288,13 @@ BruterList* str_split(const char *str, char delim)
             char *next_quote = strchr(str + i + 1, '\'');
             if (next_quote != NULL)
             {
-                char* tmp = str_nduplicate(str + i, next_quote - str + 1);
+                char* tmp = br_str_nduplicate(str + i, next_quote - str + 1);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
-                char* tmp = str_nduplicate(str + i, strlen(str) - i);
+                char* tmp = br_str_nduplicate(str + i, strlen(str) - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
@@ -240,13 +303,13 @@ BruterList* str_split(const char *str, char delim)
 
         if (str[i] == delim && !recursion && !curly && !bracket)
         {
-            char* tmp = str_nduplicate(str + last_i, i - last_i);
+            char* tmp = br_str_nduplicate(str + last_i, i - last_i);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             last_i = i + 1;
         }
         else if (str[i + 1] == '\0')
         {
-            char* tmp = str_nduplicate(str + last_i, i - last_i + 1);
+            char* tmp = br_str_nduplicate(str + last_i, i - last_i + 1);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL);
         }
 
@@ -257,7 +320,7 @@ BruterList* str_split(const char *str, char delim)
 
 
 // var new 
-BruterInt br_new_var(BruterList *context, const char* key)
+static inline BruterInt br_new_var(BruterList *context, const char* key)
 {
     BruterList *unused = br_get_unused(context);
     if (unused->size > 0)
@@ -266,7 +329,7 @@ BruterInt br_new_var(BruterList *context, const char* key)
         BruterValue _value = bruter_pop(unused);
         if (key != NULL)
         {
-            context->keys[_value.i] = str_duplicate(key);
+            context->keys[_value.i] = br_str_duplicate(key);
         }
         return _value.i;
     }
@@ -279,7 +342,7 @@ BruterInt br_new_var(BruterList *context, const char* key)
     }
 }
 
-BruterValue br_parser_number(const char *str)
+static inline BruterValue br_parser_number(const char *str)
 {
     BruterValue result;
     if (str[0] == '0' && str[1] == 'x') // hex
@@ -305,7 +368,7 @@ BruterValue br_parser_number(const char *str)
     return result;
 }
 
-BR_PARSER_STEP(parser_expression)
+static inline BR_PARSER_STEP(parser_expression)
 {
     if (str[0] == '(')
     {
@@ -318,11 +381,11 @@ BR_PARSER_STEP(parser_expression)
     return false;
 }
 
-BR_PARSER_STEP(parser_string)
+static inline BR_PARSER_STEP(parser_string)
 {
     if (str[0] == '{')
     {
-        char* new_str = str_nduplicate(str + 1, strlen(str) - 2);
+        char* new_str = br_str_nduplicate(str + 1, strlen(str) - 2);
         
         BruterList* _allocs = br_get_allocs(context);
         bruter_push(_allocs, (BruterValue){.p = new_str}, NULL);
@@ -336,7 +399,7 @@ BR_PARSER_STEP(parser_string)
     return false;
 }
 
-BR_PARSER_STEP(parser_number)
+static inline BR_PARSER_STEP(parser_number)
 {
     if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
     {
@@ -348,21 +411,21 @@ BR_PARSER_STEP(parser_number)
     return false;
 }
 
-BR_PARSER_STEP(parser_label)
+static inline BR_PARSER_STEP(parser_label)
 {
     if (str[0] == '@') // label
     {
         if (result->size <= 0)
         {
-            printf("BRUTER_ERROR:%s has no previous value\n", str);
+            printf("BR_ERROR:%s has no previous value\n", str);
         }
         else if (result->data[result->size - 1].i == -1)
         {
-            printf("BRUTER_ERROR:%s previous value is not a variable\n", str);
+            printf("BR_ERROR:%s previous value is not a variable\n", str);
         }
         else 
         {
-            context->keys[result->data[result->size - 1].i] = str_duplicate(str + 1);
+            context->keys[result->data[result->size - 1].i] = br_str_duplicate(str + 1);
             // thats it, we dont need to push anything to the result
         }
         return true;
@@ -370,11 +433,11 @@ BR_PARSER_STEP(parser_label)
     return false;
 }
 
-BR_PARSER_STEP(parser_direct_access)
+static inline BR_PARSER_STEP(parser_direct_access)
 {
     if (str[0] == '[') // direct access
     {
-        char* temp = str_nduplicate(str + 1, strlen(str) - 2);
+        char* temp = br_str_nduplicate(str + 1, strlen(str) - 2);
         BruterList* bracket_args = br_parse(context, parser, temp);
         if (bracket_args->size > 0)
         {
@@ -382,7 +445,7 @@ BR_PARSER_STEP(parser_direct_access)
         }
         else 
         {
-            printf("BRUTER_ERROR: empty brackets\n");
+            printf("BR_ERROR: empty brackets\n");
             bruter_push(result, (BruterValue){.i = -1}, NULL);
         }
         bruter_free(bracket_args);
@@ -392,7 +455,7 @@ BR_PARSER_STEP(parser_direct_access)
     return false;
 }
 
-BR_PARSER_STEP(parser_variable)
+static inline BR_PARSER_STEP(parser_variable)
 {
     BruterInt index = bruter_find(context, (BruterValue){.p = NULL}, str);
     
@@ -403,14 +466,14 @@ BR_PARSER_STEP(parser_variable)
     }
     else 
     {
-        printf("BRUTER_ERROR: variable %s not found\n", str);
+        printf("BR_ERROR: variable %s not found\n", str);
         bruter_push(result, (BruterValue){.i = -1}, NULL);
         return false;
     }
 }
 
 // SKETCH
-BruterList* basic_parser()
+static inline BruterList* br_simple_parser()
 {
     BruterList *_parser = bruter_init(8, true);
     bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression");
@@ -423,11 +486,11 @@ BruterList* basic_parser()
 }
 
 // Parser functions
-BruterList* br_parse(BruterList *context, BruterList* parser, const char *cmd) 
+static inline BruterList* br_parse(BruterList *context, BruterList* parser, const char *cmd) 
 {
     BruterList *result = bruter_init(sizeof(void*), false);
     
-    BruterList *splited = str_space_split(cmd);
+    BruterList *splited = br_str_space_split(cmd);
     char* str = NULL;
     BruterInt i = 0;
 
@@ -457,9 +520,9 @@ BruterList* br_parse(BruterList *context, BruterList* parser, const char *cmd)
     return result;
 }
 
-BruterList* br_compile_code(BruterList *context, BruterList *parser, const char *cmd) 
+static inline BruterList* br_compile_code(BruterList *context, BruterList *parser, const char *cmd) 
 {
-    BruterList *splited = str_split(cmd, ';');
+    BruterList *splited = br_str_split(cmd, ';');
     BruterList *compiled = bruter_init(sizeof(void*), false);
 
     // remove empty or whitespace-only strings using isspace
@@ -498,7 +561,7 @@ BruterList* br_compile_code(BruterList *context, BruterList *parser, const char 
     return compiled;
 }
 
-BruterInt br_compiled_call(BruterList *context, BruterList *compiled)
+static inline BruterInt br_compiled_call(BruterList *context, BruterList *compiled)
 {
     BruterInt result = -1;
     for (BruterInt i = 0; i < compiled->size; i++)
@@ -513,10 +576,10 @@ BruterInt br_compiled_call(BruterList *context, BruterList *compiled)
     return result;
 }
 
-BruterList* br_compile_and_call(BruterList *context, BruterList* parser, const char *cmd)
+static inline BruterList* br_compile_and_call(BruterList *context, BruterList* parser, const char *cmd)
 {
     BruterList *compiled = bruter_init(sizeof(void*), false);
-    BruterList *splited = str_split(cmd, ';');
+    BruterList *splited = br_str_split(cmd, ';');
     char* str = NULL;
     BruterInt result = -1;
     for (BruterInt i = 0; i < splited->size; i++) 
@@ -532,7 +595,7 @@ BruterList* br_compile_and_call(BruterList *context, BruterList* parser, const c
     return compiled;
 }
 
-void br_compiled_free(BruterList *compiled)
+static inline void br_compiled_free(BruterList *compiled)
 {
     for (BruterInt i = 0; i < compiled->size; i++)
     {
@@ -542,7 +605,7 @@ void br_compiled_free(BruterList *compiled)
     bruter_free(compiled);
 }
 
-void br_free_context(BruterList *context)
+static inline void br_free_context(BruterList *context)
 {
     // lets check if there is a parser variable in the program
     BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
@@ -573,9 +636,9 @@ void br_free_context(BruterList *context)
     bruter_free(context);
 }
 
-BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
+static inline BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
 {
-    BruterList *splited = str_split(cmd, ';');
+    BruterList *splited = br_str_split(cmd, ';');
 
     // remove empty or whitespace-only strings using isspace
     BruterInt last = splited->size - 1;
@@ -608,7 +671,7 @@ BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
         BruterList *args = br_parse(context, parser, str);
         if (args->size == 0 || args->data[0].i == -1 || BR_DATA(args->data[0].i).p == NULL)
         {
-            printf("BRUTER_ERROR: empty command or invalid function\n");
+            printf("BR_ERROR: empty command or invalid function\n");
             free(str);
             bruter_free(args);
             continue;
@@ -631,3 +694,48 @@ BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
     bruter_free(splited);
     return result;
 }
+
+static inline BruterList *br_get_parser(BruterList *context)
+{
+    BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
+    if (parser_index == -1)
+    {
+        printf("BR_ERROR: parser not found, using simple parser\n");
+        parser_index = br_new_var(context, "parser");
+        context->data[parser_index].p = br_simple_parser();
+    }
+    return context->data[parser_index].p;
+}
+
+static inline BruterList *br_get_allocs(BruterList *context)
+{
+    BruterInt allocs_index = bruter_find(context, BRUTER_VALUE(p, NULL), "allocs");
+    if (allocs_index == -1)
+    {
+        printf("BR_ERROR: allocs not found, creating it\n");
+        allocs_index = br_new_var(context, "allocs");
+        context->data[allocs_index].p = bruter_init(sizeof(BruterValue), false);
+    }
+    return context->data[allocs_index].p;
+}
+
+static inline BruterList *br_get_unused(BruterList *context)
+{
+    BruterInt unused_index = bruter_find(context, BRUTER_VALUE(p, NULL), "unused");
+    if (unused_index == -1)
+    {
+        printf("BR_ERROR: unused not found, creating it\n");
+        bruter_push(context, (BruterValue){.p = bruter_init(sizeof(BruterValue), false)}, "unused");
+        unused_index = context->size - 1;
+    }
+    return context->data[unused_index].p;
+}
+
+static inline BruterInt br_add_function(BruterList *context, const char *name, void *func)
+{
+    BruterInt index = br_new_var(context, name);
+    BR_DATA(index).p = func;
+    return index;
+}
+
+#endif
