@@ -54,7 +54,7 @@ function(_repeat)
     Int result = -1;
     for (Int i = 0; i < times; i++)
     {
-        result = eval(vm, code);
+        result = br_eval(vm, code);
         if (result != -1)
         {
             break;
@@ -69,7 +69,7 @@ function(_forever)
     Int result = -1;
     while(1)
     {
-        result = eval(vm, code);
+        result = br_eval(vm, code);
         if (result != -1)
         {
             break;
@@ -80,15 +80,15 @@ function(_forever)
 
 init(std)
 {
-    add_function(vm, "new", _new);
-    add_function(vm, "delete", _delete);
+    br_add_function(vm, "new", _new);
+    br_add_function(vm, "delete", _delete);
     
-    add_function(vm, "ls", _ls);
+    br_add_function(vm, "ls", _ls);
     
-    add_function(vm, "ignore", _ignore);
+    br_add_function(vm, "ignore", _ignore);
 
-    add_function(vm, "return", _return);
+    br_add_function(vm, "return", _return);
 
-    add_function(vm, "repeat", _repeat);
-    add_function(vm, "forever", _forever);
+    br_add_function(vm, "repeat", _repeat);
+    br_add_function(vm, "forever", _forever);
 }

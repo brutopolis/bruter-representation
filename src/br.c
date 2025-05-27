@@ -257,15 +257,29 @@ List* str_split(const char *str, char delim)
 
 
 // var new 
-Int new_var(List *context, const char* key)
+Int br_new_var(List *context, const char* key)
 {
-    Value _value;
-    _value.p = NULL;
-    list_push(context, _value, key);
-    return context->size-1;
+    List *unused = br_get_unused(context);
+    if (unused->size > 0)
+    {
+        // reuse an unused variable
+        Value _value = list_pop(unused);
+        if (key != NULL)
+        {
+            context->keys[_value.i] = str_duplicate(key);
+        }
+        return _value.i;
+    }
+    else 
+    {
+        Value _value;
+        _value.p = NULL;
+        list_push(context, _value, key);
+        return context->size-1;
+    }
 }
 
-Value parse_number(const char *str)
+Value br_parser_number(const char *str)
 {
     Value result;
     if (str[0] == '0' && str[1] == 'x') // hex
@@ -291,30 +305,30 @@ Value parse_number(const char *str)
     return result;
 }
 
-PARSER_STEP(parser_expression)
+BR_PARSER_STEP(parser_expression)
 {
     if (str[0] == '(')
     {
         char* temp = str + 1;
         temp[strlen(temp) - 1] = '\0';
-        Int res = eval(context, parser, temp);
+        Int res = br_eval(context, parser, temp);
         list_push(result, (Value){.i = res}, NULL);
         return true;
     }
     return false;
 }
 
-PARSER_STEP(parser_string)
+BR_PARSER_STEP(parser_string)
 {
     if (str[0] == '{')
     {
         char* new_str = str_nduplicate(str + 1, strlen(str) - 2);
         
-        List* _allocs = get_allocs(context);
+        List* _allocs = br_get_allocs(context);
         list_push(_allocs, (Value){.p = new_str}, NULL);
 
         Int len = strlen(str);
-        Int index = new_var(context, NULL);
+        Int index = br_new_var(context, NULL);
         context->data[index].p = new_str;
         list_push(result, (Value){.i = index}, NULL);
         return true;
@@ -322,19 +336,19 @@ PARSER_STEP(parser_string)
     return false;
 }
 
-PARSER_STEP(parser_number)
+BR_PARSER_STEP(parser_number)
 {
     if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
     {
-        Int index = new_var(context, NULL);
-        context->data[index] = parse_number(str);
+        Int index = br_new_var(context, NULL);
+        context->data[index] = br_parser_number(str);
         list_push(result, (Value){.i = index}, NULL);
         return true;
     }
     return false;
 }
 
-PARSER_STEP(parser_label)
+BR_PARSER_STEP(parser_label)
 {
     if (str[0] == '@') // label
     {
@@ -356,15 +370,15 @@ PARSER_STEP(parser_label)
     return false;
 }
 
-PARSER_STEP(parser_direct_access)
+BR_PARSER_STEP(parser_direct_access)
 {
     if (str[0] == '[') // direct access
     {
         char* temp = str_nduplicate(str + 1, strlen(str) - 2);
-        List* bracket_args = parse(context, parser, temp);
+        List* bracket_args = br_parse(context, parser, temp);
         if (bracket_args->size > 0)
         {
-            list_push(result, DATA(list_pop(bracket_args).i), NULL);
+            list_push(result, BR_DATA(list_pop(bracket_args).i), NULL);
         }
         else 
         {
@@ -378,7 +392,7 @@ PARSER_STEP(parser_direct_access)
     return false;
 }
 
-PARSER_STEP(parser_variable)
+BR_PARSER_STEP(parser_variable)
 {
     Int index = list_find(context, (Value){.p = NULL}, str);
     
@@ -409,7 +423,7 @@ List* basic_parser()
 }
 
 // Parser functions
-List* parse(List *context, List* parser, const char *cmd) 
+List* br_parse(List *context, List* parser, const char *cmd) 
 {
     List *result = list_init(sizeof(void*), false);
     
@@ -443,7 +457,7 @@ List* parse(List *context, List* parser, const char *cmd)
     return result;
 }
 
-List* compile_code(List *context, List *parser, const char *cmd) 
+List* br_compile_code(List *context, List *parser, const char *cmd) 
 {
     List *splited = str_split(cmd, ';');
     List *compiled = list_init(sizeof(void*), false);
@@ -474,7 +488,7 @@ List* compile_code(List *context, List *parser, const char *cmd)
     for (Int i = 0; i < splited->size; i++) 
     {
         str = splited->data[i].s;
-        List *args = parse(context, parser, str);
+        List *args = br_parse(context, parser, str);
 
         list_push(compiled, (Value){.p = args}, NULL);
         free(str);
@@ -484,7 +498,7 @@ List* compile_code(List *context, List *parser, const char *cmd)
     return compiled;
 }
 
-Int compiled_call(List *context, List *compiled)
+Int br_compiled_call(List *context, List *compiled)
 {
     Int result = -1;
     for (Int i = 0; i < compiled->size; i++)
@@ -499,7 +513,7 @@ Int compiled_call(List *context, List *compiled)
     return result;
 }
 
-List* compile_and_call(List *context, List* parser, const char *cmd)
+List* br_compile_and_call(List *context, List* parser, const char *cmd)
 {
     List *compiled = list_init(sizeof(void*), false);
     List *splited = str_split(cmd, ';');
@@ -508,7 +522,7 @@ List* compile_and_call(List *context, List* parser, const char *cmd)
     for (Int i = 0; i < splited->size; i++) 
     {
         str = splited->data[i].s;
-        List *args = parse(context, parser, str);
+        List *args = br_parse(context, parser, str);
         result = list_call(context, args).i; // .i because we are using contextual call
         list_push(compiled, (Value){.p = args}, NULL);
         free(str);
@@ -518,7 +532,7 @@ List* compile_and_call(List *context, List* parser, const char *cmd)
     return compiled;
 }
 
-void compiled_free(List *compiled)
+void br_compiled_free(List *compiled)
 {
     for (Int i = 0; i < compiled->size; i++)
     {
@@ -528,7 +542,38 @@ void compiled_free(List *compiled)
     list_free(compiled);
 }
 
-Int eval(List *context, List* parser, const char *cmd)
+void br_free_context(List *context)
+{
+    // lets check if there is a parser variable in the program
+    Int parser_index = list_find(context, VALUE(p, NULL), "parser");
+    if (parser_index != -1) 
+    {
+        list_free(BR_DATA(parser_index).p);
+    }
+
+    // lets check if there is a unused variable in the program
+    Int unused_index = list_find(context, VALUE(p, NULL), "unused");
+    if (unused_index != -1) 
+    {
+        list_free(BR_DATA(unused_index).p);
+    }
+
+    // lets check if there is a allocs variable in the program
+    Int allocs_index = list_find(context, VALUE(p, NULL), "allocs");
+    if (allocs_index != -1) 
+    {
+        while (((List*)BR_DATA(allocs_index).p)->size > 0)
+        {
+            free(list_pop((List*)BR_DATA(allocs_index).p).p);
+        }
+        list_free(BR_DATA(allocs_index).p);
+        context->data[allocs_index].p = NULL;
+    }
+    
+    list_free(context);
+}
+
+Int br_eval(List *context, List* parser, const char *cmd)
 {
     List *splited = str_split(cmd, ';');
 
@@ -560,8 +605,8 @@ Int eval(List *context, List* parser, const char *cmd)
     for (Int i = 0; i < splited->size; i++)
     {        
         str = splited->data[i].s;
-        List *args = parse(context, parser, str);
-        if (args->size == 0 || args->data[0].i == -1 || DATA(args->data[0].i).p == NULL)
+        List *args = br_parse(context, parser, str);
+        if (args->size == 0 || args->data[0].i == -1 || BR_DATA(args->data[0].i).p == NULL)
         {
             printf("BRUTER_ERROR: empty command or invalid function\n");
             free(str);
