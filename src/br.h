@@ -23,35 +23,35 @@
 #define BR_ARG_I(arg_index) args->data[arg_index+1].i
 #define BR_ARG_COUNT() args->size - 1
 
-#define BR_INIT(name) void init_##name(List *context)
+#define BR_INIT(name) void init_##name(BruterList *context)
 
-#define BR_PARSER_STEP(name) bool name(List *context, List *parser, List *result, Int current_word, Int current_step, char *str)
+#define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str)
 
 // step type
-typedef bool (*ParserStep)(List *context, List *parser, List *result, Int current_word, Int current_step, char *str);
+typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str);
 
 char*   str_duplicate(const char *str);
-char*   str_nduplicate(const char *str, UInt size);
-List*   str_space_split(const char *str);
-List*   str_split(const char *str, char delim);
+char*   str_nduplicate(const char *str, BruterUInt size);
+BruterList*   str_space_split(const char *str);
+BruterList*   str_split(const char *str, char delim);
 char*   str_format(const char *format, ...);
 
-Int     br_new_var(List *context, const char* key);
+BruterInt     br_new_var(BruterList *context, const char* key);
 
-Value   br_parser_number(const char *str);
-List*   br_parse(List *context, List *parser, const char *cmd);
-Int     br_eval(List *context, List *parser, const char *cmd);
+BruterValue   br_parser_number(const char *str);
+BruterList*   br_parse(BruterList *context, BruterList *parser, const char *cmd);
+BruterInt     br_eval(BruterList *context, BruterList *parser, const char *cmd);
 
-List*   basic_parser();
+BruterList*   basic_parser();
 
-List*   br_compile_code(List *context, List* parser, const char *code);
-List*   br_compile_and_call(List *context, List* parser, const char *cmd);
-Int     br_compiled_call(List *context, List *compiled);
-void    br_compiled_free(List *compiled);
+BruterList*   br_compile_code(BruterList *context, BruterList* parser, const char *code);
+BruterList*   br_compile_and_call(BruterList *context, BruterList* parser, const char *cmd);
+BruterInt     br_compiled_call(BruterList *context, BruterList *compiled);
+void    br_compiled_free(BruterList *compiled);
 
-static inline List *br_get_parser(List *context)
+static inline BruterList *br_get_parser(BruterList *context)
 {
-    Int parser_index = list_find(context, VALUE(p, NULL), "parser");
+    BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
     if (parser_index == -1)
     {
         printf("BRUTER_ERROR: parser not found, using simple parser\n");
@@ -61,37 +61,37 @@ static inline List *br_get_parser(List *context)
     return context->data[parser_index].p;
 }
 
-static inline List *br_get_allocs(List *context)
+static inline BruterList *br_get_allocs(BruterList *context)
 {
-    Int allocs_index = list_find(context, VALUE(p, NULL), "allocs");
+    BruterInt allocs_index = bruter_find(context, BRUTER_VALUE(p, NULL), "allocs");
     if (allocs_index == -1)
     {
         printf("BRUTER_ERROR: allocs not found, creating it\n");
         allocs_index = br_new_var(context, "allocs");
-        context->data[allocs_index].p = list_init(sizeof(Value), false);
+        context->data[allocs_index].p = bruter_init(sizeof(BruterValue), false);
     }
     return context->data[allocs_index].p;
 }
 
-static inline List *br_get_unused(List *context)
+static inline BruterList *br_get_unused(BruterList *context)
 {
-    Int unused_index = list_find(context, VALUE(p, NULL), "unused");
+    BruterInt unused_index = bruter_find(context, BRUTER_VALUE(p, NULL), "unused");
     if (unused_index == -1)
     {
         printf("BRUTER_ERROR: unused not found, creating it\n");
-        list_push(context, (Value){.p = list_init(sizeof(Value), false)}, "unused");
+        bruter_push(context, (BruterValue){.p = bruter_init(sizeof(BruterValue), false)}, "unused");
         unused_index = context->size - 1;
     }
     return context->data[unused_index].p;
 }
 
-static inline Int br_add_function(List *context, const char *name, void *func)
+static inline BruterInt br_add_function(BruterList *context, const char *name, void *func)
 {
-    Int index = br_new_var(context, name);
+    BruterInt index = br_new_var(context, name);
     BR_DATA(index).p = func;
     return index;
 }
 
-void br_free_context(List *context);
+void br_free_context(BruterList *context);
 
 #endif

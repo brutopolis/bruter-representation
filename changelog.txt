@@ -1,6 +1,11 @@
 
 # br changelog https://github.com/brutopolis/br
 
+(27/05/2025) - version 1.0.4a
+
+- all list_ functions updated to use bruter_ prefix instead;
+- all br functions are now prefixed with br_, and the macros are prefixed with BR_;
+
 (25/05/2025) - version 1.0.4
 
 - ARG_S and DATA_S removed;

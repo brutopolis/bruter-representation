@@ -3,7 +3,7 @@
 // string stuff
 char* str_duplicate(const char *str)
 {
-    Int len = strlen(str);
+    BruterInt len = strlen(str);
     char *dup = (char*)malloc(len + 1);
     
     if (dup == NULL)
@@ -16,7 +16,7 @@ char* str_duplicate(const char *str)
     return dup;
 }
 
-char* str_nduplicate(const char *str, UInt n)
+char* str_nduplicate(const char *str, BruterUInt n)
 {
     char *dup = (char*)malloc(n + 1);
     
@@ -35,7 +35,7 @@ char* str_format(const char *format, ...)
 {
     va_list args;
     va_start(args, format);
-    Int size = vsnprintf(NULL, 0, format, args);
+    BruterInt size = vsnprintf(NULL, 0, format, args);
     va_end(args);
     char *str = (char*)malloc(size + 1);
     if (str == NULL)
@@ -49,9 +49,9 @@ char* str_format(const char *format, ...)
     return str;
 }
 
-List* str_space_split(const char *str)
+BruterList* str_space_split(const char *str)
 {
-    List *splited = list_init(sizeof(void*), false);
+    BruterList *splited = bruter_init(sizeof(void*), false);
     
     int i = 0;
     while (str[i] != '\0')
@@ -73,7 +73,7 @@ List* str_space_split(const char *str)
                 }
             }
             char *tmp = str_nduplicate(str + i, j - i + 1);
-            list_push(splited, (Value){.s = tmp}, NULL);
+            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             i = j + 1;
         }
         else if (str[i] == '{')
@@ -93,7 +93,7 @@ List* str_space_split(const char *str)
                 }
             }
             char *tmp = str_nduplicate(str + i, j - i + 1);
-            list_push(splited, (Value){.s = tmp}, NULL);
+            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             i = j + 1;
         }
         else if (str[i] == '[')
@@ -113,7 +113,7 @@ List* str_space_split(const char *str)
                 }
             }
             char *tmp = str_nduplicate(str + i, j - i + 1);
-            list_push(splited, (Value){.s = tmp}, NULL);
+            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             i = j + 1;
         }
         else if (str[i] == '"') // with strchr
@@ -122,13 +122,13 @@ List* str_space_split(const char *str)
             if (next_quote != NULL)
             {
                 char *tmp = str_nduplicate(str + i, next_quote - str + 1);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
                 char *tmp = str_nduplicate(str + i, strlen(str) - i);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
         }
@@ -138,13 +138,13 @@ List* str_space_split(const char *str)
             if (next_quote != NULL)
             {
                 char *tmp = str_nduplicate(str + i, next_quote - str + 1);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
                 char *tmp = str_nduplicate(str + i, strlen(str) - i);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
         }
@@ -159,7 +159,7 @@ List* str_space_split(const char *str)
             {
                 j++;
             }
-            list_push(splited, (Value) {.s = str_nduplicate(str + i, j - i)}, NULL);
+            bruter_push(splited, (BruterValue) {.s = str_nduplicate(str + i, j - i)}, NULL);
             i = j;
         }
     }
@@ -167,9 +167,9 @@ List* str_space_split(const char *str)
 }
 
 
-List* str_split(const char *str, char delim)
+BruterList* str_split(const char *str, char delim)
 {
-    List *splited = list_init(sizeof(void*), false);
+    BruterList *splited = bruter_init(sizeof(void*), false);
     
     int recursion = 0;
     int curly = 0;
@@ -210,13 +210,13 @@ List* str_split(const char *str, char delim)
             if (next_quote != NULL)
             {
                 char* tmp = str_nduplicate(str + i, next_quote - str + 1);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
                 char* tmp = str_nduplicate(str + i, strlen(str) - i);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
         }
@@ -226,13 +226,13 @@ List* str_split(const char *str, char delim)
             if (next_quote != NULL)
             {
                 char* tmp = str_nduplicate(str + i, next_quote - str + 1);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = next_quote - str + 1;
             }
             else
             {
                 char* tmp = str_nduplicate(str + i, strlen(str) - i);
-                list_push(splited, (Value){.s = tmp}, NULL);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 break;
             }
         }
@@ -241,13 +241,13 @@ List* str_split(const char *str, char delim)
         if (str[i] == delim && !recursion && !curly && !bracket)
         {
             char* tmp = str_nduplicate(str + last_i, i - last_i);
-            list_push(splited, (Value){.s = tmp}, NULL);
+            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             last_i = i + 1;
         }
         else if (str[i + 1] == '\0')
         {
             char* tmp = str_nduplicate(str + last_i, i - last_i + 1);
-            list_push(splited, (Value){.s = tmp}, NULL);
+            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
         }
 
         i++;
@@ -257,13 +257,13 @@ List* str_split(const char *str, char delim)
 
 
 // var new 
-Int br_new_var(List *context, const char* key)
+BruterInt br_new_var(BruterList *context, const char* key)
 {
-    List *unused = br_get_unused(context);
+    BruterList *unused = br_get_unused(context);
     if (unused->size > 0)
     {
         // reuse an unused variable
-        Value _value = list_pop(unused);
+        BruterValue _value = bruter_pop(unused);
         if (key != NULL)
         {
             context->keys[_value.i] = str_duplicate(key);
@@ -272,16 +272,16 @@ Int br_new_var(List *context, const char* key)
     }
     else 
     {
-        Value _value;
+        BruterValue _value;
         _value.p = NULL;
-        list_push(context, _value, key);
+        bruter_push(context, _value, key);
         return context->size-1;
     }
 }
 
-Value br_parser_number(const char *str)
+BruterValue br_parser_number(const char *str)
 {
-    Value result;
+    BruterValue result;
     if (str[0] == '0' && str[1] == 'x') // hex
     {
         result.i = strtol(str+2, NULL, 16);
@@ -311,8 +311,8 @@ BR_PARSER_STEP(parser_expression)
     {
         char* temp = str + 1;
         temp[strlen(temp) - 1] = '\0';
-        Int res = br_eval(context, parser, temp);
-        list_push(result, (Value){.i = res}, NULL);
+        BruterInt res = br_eval(context, parser, temp);
+        bruter_push(result, (BruterValue){.i = res}, NULL);
         return true;
     }
     return false;
@@ -324,13 +324,13 @@ BR_PARSER_STEP(parser_string)
     {
         char* new_str = str_nduplicate(str + 1, strlen(str) - 2);
         
-        List* _allocs = br_get_allocs(context);
-        list_push(_allocs, (Value){.p = new_str}, NULL);
+        BruterList* _allocs = br_get_allocs(context);
+        bruter_push(_allocs, (BruterValue){.p = new_str}, NULL);
 
-        Int len = strlen(str);
-        Int index = br_new_var(context, NULL);
+        BruterInt len = strlen(str);
+        BruterInt index = br_new_var(context, NULL);
         context->data[index].p = new_str;
-        list_push(result, (Value){.i = index}, NULL);
+        bruter_push(result, (BruterValue){.i = index}, NULL);
         return true;
     }
     return false;
@@ -340,9 +340,9 @@ BR_PARSER_STEP(parser_number)
 {
     if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
     {
-        Int index = br_new_var(context, NULL);
+        BruterInt index = br_new_var(context, NULL);
         context->data[index] = br_parser_number(str);
-        list_push(result, (Value){.i = index}, NULL);
+        bruter_push(result, (BruterValue){.i = index}, NULL);
         return true;
     }
     return false;
@@ -375,17 +375,17 @@ BR_PARSER_STEP(parser_direct_access)
     if (str[0] == '[') // direct access
     {
         char* temp = str_nduplicate(str + 1, strlen(str) - 2);
-        List* bracket_args = br_parse(context, parser, temp);
+        BruterList* bracket_args = br_parse(context, parser, temp);
         if (bracket_args->size > 0)
         {
-            list_push(result, BR_DATA(list_pop(bracket_args).i), NULL);
+            bruter_push(result, BR_DATA(bruter_pop(bracket_args).i), NULL);
         }
         else 
         {
             printf("BRUTER_ERROR: empty brackets\n");
-            list_push(result, (Value){.i = -1}, NULL);
+            bruter_push(result, (BruterValue){.i = -1}, NULL);
         }
-        list_free(bracket_args);
+        bruter_free(bracket_args);
         free(temp);
         return true;
     }
@@ -394,52 +394,52 @@ BR_PARSER_STEP(parser_direct_access)
 
 BR_PARSER_STEP(parser_variable)
 {
-    Int index = list_find(context, (Value){.p = NULL}, str);
+    BruterInt index = bruter_find(context, (BruterValue){.p = NULL}, str);
     
     if (index != -1)
     {
-        list_push(result, (Value){.i = index}, NULL);
+        bruter_push(result, (BruterValue){.i = index}, NULL);
         return true;
     }
     else 
     {
         printf("BRUTER_ERROR: variable %s not found\n", str);
-        list_push(result, (Value){.i = -1}, NULL);
+        bruter_push(result, (BruterValue){.i = -1}, NULL);
         return false;
     }
 }
 
 // SKETCH
-List* basic_parser()
+BruterList* basic_parser()
 {
-    List *_parser = list_init(8, true);
-    list_push(_parser, (Value){.p = parser_expression}, "expression");
-    list_push(_parser, (Value){.p = parser_string}, "string");
-    list_push(_parser, (Value){.p = parser_number}, "number");
-    list_push(_parser, (Value){.p = parser_label}, "label");
-    list_push(_parser, (Value){.p = parser_direct_access}, "direct_access");
-    list_push(_parser, (Value){.p = parser_variable}, "variable");
+    BruterList *_parser = bruter_init(8, true);
+    bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression");
+    bruter_push(_parser, (BruterValue){.p = parser_string}, "string");
+    bruter_push(_parser, (BruterValue){.p = parser_number}, "number");
+    bruter_push(_parser, (BruterValue){.p = parser_label}, "label");
+    bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access");
+    bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable");
     return _parser;
 }
 
 // Parser functions
-List* br_parse(List *context, List* parser, const char *cmd) 
+BruterList* br_parse(BruterList *context, BruterList* parser, const char *cmd) 
 {
-    List *result = list_init(sizeof(void*), false);
+    BruterList *result = bruter_init(sizeof(void*), false);
     
-    List *splited = str_space_split(cmd);
+    BruterList *splited = str_space_split(cmd);
     char* str = NULL;
-    Int i = 0;
+    BruterInt i = 0;
 
     // remove empty or whitespace-only strings using isspace
-    Int last = splited->size - 1;
+    BruterInt last = splited->size - 1;
     
 
     for (i = 0; i < splited->size; i++)
     {
         str = splited->data[i].s;
 
-        for (Int j = 0; j < parser->size; j++)
+        for (BruterInt j = 0; j < parser->size; j++)
         {
             ParserStep step = parser->data[j].p;
             if (step(context, parser, result, i, j, str))
@@ -453,25 +453,25 @@ List* br_parse(List *context, List* parser, const char *cmd)
         free(str);
     }
 
-    list_free(splited);
+    bruter_free(splited);
     return result;
 }
 
-List* br_compile_code(List *context, List *parser, const char *cmd) 
+BruterList* br_compile_code(BruterList *context, BruterList *parser, const char *cmd) 
 {
-    List *splited = str_split(cmd, ';');
-    List *compiled = list_init(sizeof(void*), false);
+    BruterList *splited = str_split(cmd, ';');
+    BruterList *compiled = bruter_init(sizeof(void*), false);
 
     // remove empty or whitespace-only strings using isspace
-    Int last = splited->size - 1;
-    for (Int i = 0; i < splited->size; i++)
+    BruterInt last = splited->size - 1;
+    for (BruterInt i = 0; i < splited->size; i++)
     {
         char* str = splited->data[i].s;
         if (str[0] == '\0' || str[0] == ' ')
         {
             free(str);
             splited->size--;
-            for (Int j = i; j < last; j++)
+            for (BruterInt j = i; j < last; j++)
             {
                 splited->data[j] = splited->data[j + 1];
             }
@@ -480,31 +480,31 @@ List* br_compile_code(List *context, List *parser, const char *cmd)
     }
     if (splited->size == 0)
     {
-        list_free(splited);
+        bruter_free(splited);
         return NULL;
     }
 
     char* str = NULL;
-    for (Int i = 0; i < splited->size; i++) 
+    for (BruterInt i = 0; i < splited->size; i++) 
     {
         str = splited->data[i].s;
-        List *args = br_parse(context, parser, str);
+        BruterList *args = br_parse(context, parser, str);
 
-        list_push(compiled, (Value){.p = args}, NULL);
+        bruter_push(compiled, (BruterValue){.p = args}, NULL);
         free(str);
     }
 
-    list_free(splited);
+    bruter_free(splited);
     return compiled;
 }
 
-Int br_compiled_call(List *context, List *compiled)
+BruterInt br_compiled_call(BruterList *context, BruterList *compiled)
 {
-    Int result = -1;
-    for (Int i = 0; i < compiled->size; i++)
+    BruterInt result = -1;
+    for (BruterInt i = 0; i < compiled->size; i++)
     {
-        List *args = compiled->data[i].p;
-        result = list_call(context, args).i; // .i because we are using contextual call
+        BruterList *args = compiled->data[i].p;
+        result = bruter_call(context, args).i; // .i because we are using contextual call
         if (result != -1)
         {
             break;
@@ -513,80 +513,80 @@ Int br_compiled_call(List *context, List *compiled)
     return result;
 }
 
-List* br_compile_and_call(List *context, List* parser, const char *cmd)
+BruterList* br_compile_and_call(BruterList *context, BruterList* parser, const char *cmd)
 {
-    List *compiled = list_init(sizeof(void*), false);
-    List *splited = str_split(cmd, ';');
+    BruterList *compiled = bruter_init(sizeof(void*), false);
+    BruterList *splited = str_split(cmd, ';');
     char* str = NULL;
-    Int result = -1;
-    for (Int i = 0; i < splited->size; i++) 
+    BruterInt result = -1;
+    for (BruterInt i = 0; i < splited->size; i++) 
     {
         str = splited->data[i].s;
-        List *args = br_parse(context, parser, str);
-        result = list_call(context, args).i; // .i because we are using contextual call
-        list_push(compiled, (Value){.p = args}, NULL);
+        BruterList *args = br_parse(context, parser, str);
+        result = bruter_call(context, args).i; // .i because we are using contextual call
+        bruter_push(compiled, (BruterValue){.p = args}, NULL);
         free(str);
     }
-    list_free(splited);
+    bruter_free(splited);
     
     return compiled;
 }
 
-void br_compiled_free(List *compiled)
+void br_compiled_free(BruterList *compiled)
 {
-    for (Int i = 0; i < compiled->size; i++)
+    for (BruterInt i = 0; i < compiled->size; i++)
     {
-        List *args = compiled->data[i].p;
-        list_free(args);
+        BruterList *args = compiled->data[i].p;
+        bruter_free(args);
     }
-    list_free(compiled);
+    bruter_free(compiled);
 }
 
-void br_free_context(List *context)
+void br_free_context(BruterList *context)
 {
     // lets check if there is a parser variable in the program
-    Int parser_index = list_find(context, VALUE(p, NULL), "parser");
+    BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
     if (parser_index != -1) 
     {
-        list_free(BR_DATA(parser_index).p);
+        bruter_free(BR_DATA(parser_index).p);
     }
 
     // lets check if there is a unused variable in the program
-    Int unused_index = list_find(context, VALUE(p, NULL), "unused");
+    BruterInt unused_index = bruter_find(context, BRUTER_VALUE(p, NULL), "unused");
     if (unused_index != -1) 
     {
-        list_free(BR_DATA(unused_index).p);
+        bruter_free(BR_DATA(unused_index).p);
     }
 
     // lets check if there is a allocs variable in the program
-    Int allocs_index = list_find(context, VALUE(p, NULL), "allocs");
+    BruterInt allocs_index = bruter_find(context, BRUTER_VALUE(p, NULL), "allocs");
     if (allocs_index != -1) 
     {
-        while (((List*)BR_DATA(allocs_index).p)->size > 0)
+        while (((BruterList*)BR_DATA(allocs_index).p)->size > 0)
         {
-            free(list_pop((List*)BR_DATA(allocs_index).p).p);
+            free(bruter_pop((BruterList*)BR_DATA(allocs_index).p).p);
         }
-        list_free(BR_DATA(allocs_index).p);
+        bruter_free(BR_DATA(allocs_index).p);
         context->data[allocs_index].p = NULL;
     }
     
-    list_free(context);
+    bruter_free(context);
 }
 
-Int br_eval(List *context, List* parser, const char *cmd)
+BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
 {
-    List *splited = str_split(cmd, ';');
+    BruterList *splited = str_split(cmd, ';');
 
     // remove empty or whitespace-only strings using isspace
-    Int last = splited->size - 1;
-    for (Int i = 0; i < splited->size; i++)
+    BruterInt last = splited->size - 1;
+    for (BruterInt i = 0; i < splited->size; i++)
     {
         char* str = splited->data[i].s;
         if (str[0] == '\0' || str[0] == ' ')
         {
             free(str);
             splited->size--;
-            for (Int j = i; j < last; j++)
+            for (BruterInt j = i; j < last; j++)
             {
                 splited->data[j] = splited->data[j + 1];
             }
@@ -596,30 +596,30 @@ Int br_eval(List *context, List* parser, const char *cmd)
 
     if (splited->size == 0)
     {
-        list_free(splited);
+        bruter_free(splited);
         return -1;
     }
 
-    Int result = -1;
+    BruterInt result = -1;
     char* str = NULL;
-    for (Int i = 0; i < splited->size; i++)
+    for (BruterInt i = 0; i < splited->size; i++)
     {        
         str = splited->data[i].s;
-        List *args = br_parse(context, parser, str);
+        BruterList *args = br_parse(context, parser, str);
         if (args->size == 0 || args->data[0].i == -1 || BR_DATA(args->data[0].i).p == NULL)
         {
             printf("BRUTER_ERROR: empty command or invalid function\n");
             free(str);
-            list_free(args);
+            bruter_free(args);
             continue;
         }
-        result = list_call(context, args).i; // .i because we are using contextual call
+        result = bruter_call(context, args).i; // .i because we are using contextual call
         free(str);
-        list_free(args);
+        bruter_free(args);
 
         if (result >= 0)
         {
-            for (Int j = i + 1; j < splited->size; j++)
+            for (BruterInt j = i + 1; j < splited->size; j++)
             {
                 free(splited->data[j].s);
             }
@@ -628,6 +628,6 @@ Int br_eval(List *context, List* parser, const char *cmd)
         
         
     }
-    list_free(splited);
+    bruter_free(splited);
     return result;
 }
