@@ -2,7 +2,7 @@ load {dycc};
 
 dycc.compile {
 
-    BRUTER_FUNCTION(abc)
+    BR_FUNCTION(abc)
     {   
         printf("aooooooooooo\n");
         return (BruterInt)-1;

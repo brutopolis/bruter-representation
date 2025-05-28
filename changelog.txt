@@ -1,6 +1,11 @@
 
 # br changelog https://github.com/brutopolis/br
 
+(28/05/2025) - version 1.0.6
+
+- BR_ARG* macros removed;
+- prefer BR_ARG* alternatives as inlined functions;
+
 (27/05/2025) - version 1.0.5
 
 - all list_ functions updated to use bruter_ prefix instead;

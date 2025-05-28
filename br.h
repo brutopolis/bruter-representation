@@ -11,21 +11,21 @@
 #include <time.h>
 #include <stddef.h>
 
-#define BR_VERSION "1.0.5"
+#define BR_VERSION "1.0.6"
 
-// we always use the first argument as the function pointer index in the context
-// the second argument is the first argument and so on
-#define BR_ARG(arg_index) context->data[args->data[arg_index+1].i]
-#define BR_ARG_L(arg_index) context->keys[args->data[arg_index+1].i]
-#define BR_ARG_I(arg_index) args->data[arg_index+1].i
-#define BR_ARG_COUNT() args->size - 1
-
+// 
 #define BR_INIT(name) void init_##name(BruterList *context)
-
+#define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
 #define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str)
 
 // step type
 typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str);
+
+
+static inline BruterValue   br_arg(BruterList *context, BruterList *args, BruterInt arg_index);
+static inline char*         br_arg_l(BruterList *context, BruterList *args, BruterInt arg_index);
+static inline BruterInt     br_arg_i(BruterList *args, BruterInt arg_index);
+static inline BruterInt     br_arg_count(BruterList *args);
 
 static inline char*         br_str_duplicate(const char *str);
 static inline char*         br_str_nduplicate(const char *str, BruterUInt size);
@@ -59,6 +59,27 @@ static inline void          br_free_context(BruterList *context);
 // functions definitions
 // functions definitions
 // functions definitions
+
+// arg stuff
+static inline BruterValue br_arg(BruterList *context, BruterList *args, BruterInt arg_index)
+{
+    return context->data[args->data[arg_index+1].i];
+}
+
+static inline char* br_arg_l(BruterList *context, BruterList *args, BruterInt arg_index)
+{
+    return context->keys[args->data[arg_index+1].i];
+}
+
+static inline BruterInt br_arg_i(BruterList *args, BruterInt arg_index)
+{
+    return args->data[arg_index+1].i;
+}
+
+static inline BruterInt br_arg_count(BruterList *args)
+{
+    return args->size - 1;
+}
 
 // string stuff
 static inline char* br_str_duplicate(const char *str)
@@ -605,21 +626,21 @@ static inline void br_compiled_free(BruterList *compiled)
 static inline void br_free_context(BruterList *context)
 {
     // lets check if there is a parser variable in the program
-    BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
+    BruterInt parser_index = bruter_find(context, bruter_value_p(NULL), "parser");
     if (parser_index != -1) 
     {
         bruter_free(bruter_get(context, parser_index).p);
     }
 
     // lets check if there is a unused variable in the program
-    BruterInt unused_index = bruter_find(context, BRUTER_VALUE(p, NULL), "unused");
+    BruterInt unused_index = bruter_find(context, bruter_value_p(NULL), "unused");
     if (unused_index != -1) 
     {
         bruter_free(bruter_get(context, unused_index).p);
     }
 
     // lets check if there is a allocs variable in the program
-    BruterInt allocs_index = bruter_find(context, BRUTER_VALUE(p, NULL), "allocs");
+    BruterInt allocs_index = bruter_find(context, bruter_value_p(NULL), "allocs");
     if (allocs_index != -1) 
     {
         while (((BruterList*)bruter_get(context, allocs_index).p)->size > 0)
@@ -694,7 +715,7 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
 
 static inline BruterList *br_get_parser(BruterList *context)
 {
-    BruterInt parser_index = bruter_find(context, BRUTER_VALUE(p, NULL), "parser");
+    BruterInt parser_index = bruter_find(context, bruter_value_p(NULL), "parser");
     if (parser_index == -1)
     {
         printf("BR_WARN: parser not found, using simple parser\n");
@@ -706,7 +727,7 @@ static inline BruterList *br_get_parser(BruterList *context)
 
 static inline BruterList *br_get_allocs(BruterList *context)
 {
-    BruterInt allocs_index = bruter_find(context, BRUTER_VALUE(p, NULL), "allocs");
+    BruterInt allocs_index = bruter_find(context, bruter_value_p(NULL), "allocs");
     if (allocs_index == -1)
     {
         printf("BR_WARN: allocs not found, creating it\n");
@@ -718,7 +739,7 @@ static inline BruterList *br_get_allocs(BruterList *context)
 
 static inline BruterList *br_get_unused(BruterList *context)
 {
-    BruterInt unused_index = bruter_find(context, BRUTER_VALUE(p, NULL), "unused");
+    BruterInt unused_index = bruter_find(context, bruter_value_p(NULL), "unused");
     if (unused_index == -1)
     {
         printf("BR_WARN: unused not found, creating it\n");
@@ -731,7 +752,7 @@ static inline BruterList *br_get_unused(BruterList *context)
 static inline BruterInt br_add_function(BruterList *context, const char *name, void *func)
 {
     BruterInt index = br_new_var(context, name);
-    bruter_set(context, index, BRUTER_VALUE(p, func));
+    bruter_set(context, index, bruter_value_p(func));
     return index;
 }
 
