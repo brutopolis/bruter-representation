@@ -5,6 +5,7 @@
 
 - BR_ARG* macros removed;
 - prefer BR_ARG* alternatives as inlined functions;
+- label is now key;
 
 (27/05/2025) - version 1.0.5
 

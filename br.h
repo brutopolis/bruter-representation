@@ -23,9 +23,13 @@ typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *
 
 
 static inline BruterValue   br_arg(BruterList *context, BruterList *args, BruterInt arg_index);
-static inline char*         br_arg_l(BruterList *context, BruterList *args, BruterInt arg_index);
-static inline BruterInt     br_arg_i(BruterList *args, BruterInt arg_index);
+static inline char*         br_arg_key(BruterList *context, BruterList *args, BruterInt arg_index);
+static inline BruterInt     br_arg_index(BruterList *args, BruterInt arg_index);
 static inline BruterInt     br_arg_count(BruterList *args);
+
+static inline void          br_arg_set(BruterList *context, BruterList *args, BruterInt arg_index, BruterValue value);
+static inline void          br_arg_set_key(BruterList *context, BruterList *args, BruterInt arg_index, const char *key);
+static inline void          br_arg_set_index(BruterList *args, BruterInt arg_index, BruterInt index);
 
 static inline char*         br_str_duplicate(const char *str);
 static inline char*         br_str_nduplicate(const char *str, BruterUInt size);
@@ -66,12 +70,12 @@ static inline BruterValue br_arg(BruterList *context, BruterList *args, BruterIn
     return context->data[args->data[arg_index+1].i];
 }
 
-static inline char* br_arg_l(BruterList *context, BruterList *args, BruterInt arg_index)
+static inline char* br_arg_key(BruterList *context, BruterList *args, BruterInt arg_index)
 {
     return context->keys[args->data[arg_index+1].i];
 }
 
-static inline BruterInt br_arg_i(BruterList *args, BruterInt arg_index)
+static inline BruterInt br_arg_index(BruterList *args, BruterInt arg_index)
 {
     return args->data[arg_index+1].i;
 }
@@ -79,6 +83,40 @@ static inline BruterInt br_arg_i(BruterList *args, BruterInt arg_index)
 static inline BruterInt br_arg_count(BruterList *args)
 {
     return args->size - 1;
+}
+
+static inline void br_arg_set(BruterList *context, BruterList *args, BruterInt arg_index, BruterValue value)
+{
+    context->data[args->data[arg_index+1].i] = value;
+}
+
+static inline void br_arg_set_key(BruterList *context, BruterList *args, BruterInt arg_index, const char *key)
+{
+    if (context->keys == NULL)
+    {
+        printf("BR_ERROR: br_arg_set_key called on a list that is not a table\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    if (args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size)
+    {
+        printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", args->data[arg_index+1].i, context->size);
+        exit(EXIT_FAILURE);
+    }
+    
+    free(context->keys[args->data[arg_index+1].i]);
+    context->keys[args->data[arg_index+1].i] = br_str_duplicate(key);
+}
+
+static inline void br_arg_set_index(BruterList *args, BruterInt arg_index, BruterInt index)
+{
+    if (index < 0 || index >= args->size)
+    {
+        printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", index, args->size);
+        exit(EXIT_FAILURE);
+    }
+    
+    args->data[arg_index+1].i = index;
 }
 
 // string stuff
@@ -429,9 +467,9 @@ static inline BR_PARSER_STEP(parser_number)
     return false;
 }
 
-static inline BR_PARSER_STEP(parser_label)
+static inline BR_PARSER_STEP(parser_key)
 {
-    if (str[0] == '@') // label
+    if (str[0] == '@') // key
     {
         if (result->size <= 0)
         {
@@ -497,7 +535,7 @@ static inline BruterList* br_simple_parser()
     bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression");
     bruter_push(_parser, (BruterValue){.p = parser_string}, "string");
     bruter_push(_parser, (BruterValue){.p = parser_number}, "number");
-    bruter_push(_parser, (BruterValue){.p = parser_label}, "label");
+    bruter_push(_parser, (BruterValue){.p = parser_key}, "key");
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access");
     bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable");
     return _parser;

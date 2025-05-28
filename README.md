@@ -15,7 +15,7 @@
 
 - `;` = end of command separator
 
-- `@` = label operator
+- `@` = key operator
 
 # Language usage
 
@@ -30,7 +30,7 @@
     command 0o00000000;
     command 0.000000;
     command 0;
-    command value @label;
+    command value @key;
     [0] ...;
     [(command ...) variable] ...;
 
