@@ -13,7 +13,6 @@
 
 #define BR_VERSION "1.0.6"
 
-// 
 #define BR_INIT(name) void init_##name(BruterList *context)
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
 #define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str)
@@ -237,7 +236,7 @@ static inline BruterList* br_str_space_split(const char *str)
         }
         else if (str[i] == '"') // with strchr
         {
-            char *next_quote = strchr(str + i + 1, '"');
+            const char *next_quote = strchr(str + i + 1, '"');
             if (next_quote != NULL)
             {
                 char *tmp = br_str_nduplicate(str + i, next_quote - str + 1);
@@ -253,7 +252,7 @@ static inline BruterList* br_str_space_split(const char *str)
         }
         else if (str[i] == '\'') // with strchr
         {
-            char *next_quote = strchr(str + i + 1, '\'');
+            const char *next_quote = strchr(str + i + 1, '\'');
             if (next_quote != NULL)
             {
                 char *tmp = br_str_nduplicate(str + i, next_quote - str + 1);
@@ -325,7 +324,7 @@ static inline BruterList* br_str_split(const char *str, char delim)
         }
         else if (str[i] == '"' && (i == 0 || str[i-1] != '\\') && !recursion && !curly && !bracket)
         {
-            char *next_quote = strchr(str + i + 1, '"');
+            const char *next_quote = strchr(str + i + 1, '"');
             if (next_quote != NULL)
             {
                 char* tmp = br_str_nduplicate(str + i, next_quote - str + 1);
@@ -341,7 +340,7 @@ static inline BruterList* br_str_split(const char *str, char delim)
         }
         else if (str[i] == '\'' && (i == 0 || str[i-1] != '\\') && !recursion && !curly && !bracket)
         {
-            char *next_quote = strchr(str + i + 1, '\'');
+            const char *next_quote = strchr(str + i + 1, '\'');
             if (next_quote != NULL)
             {
                 char* tmp = br_str_nduplicate(str + i, next_quote - str + 1);
@@ -556,7 +555,7 @@ static inline BruterList* br_parse(BruterList *context, BruterList* parser, cons
 
         for (BruterInt j = 0; j < parser->size; j++)
         {
-            ParserStep step = parser->data[j].p;
+            ParserStep step = (ParserStep)parser->data[j].p;
             if (step(context, parser, result, i, j, str))
             {
                 // if the step returns true, means it was successful
@@ -618,7 +617,7 @@ static inline BruterInt br_compiled_call(BruterList *context, BruterList *compil
     BruterInt result = -1;
     for (BruterInt i = 0; i < compiled->size; i++)
     {
-        BruterList *args = compiled->data[i].p;
+        BruterList *args = (BruterList*)compiled->data[i].p;
         result = bruter_call(context, args).i; // .i because we are using contextual call
         if (result != -1)
         {
@@ -651,7 +650,7 @@ static inline void br_compiled_free(BruterList *compiled)
 {
     for (BruterInt i = 0; i < compiled->size; i++)
     {
-        BruterList *args = compiled->data[i].p;
+        BruterList *args = (BruterList*)compiled->data[i].p;
         bruter_free(args);
     }
     bruter_free(compiled);
@@ -663,14 +662,14 @@ static inline void br_free_context(BruterList *context)
     BruterInt parser_index = bruter_find(context, bruter_value_p(NULL), "parser");
     if (parser_index != -1) 
     {
-        bruter_free(bruter_get(context, parser_index).p);
+        bruter_free((BruterList*)bruter_get(context, parser_index).p);
     }
 
     // lets check if there is a unused variable in the program
     BruterInt unused_index = bruter_find(context, bruter_value_p(NULL), "unused");
     if (unused_index != -1) 
     {
-        bruter_free(bruter_get(context, unused_index).p);
+        bruter_free((BruterList*)bruter_get(context, unused_index).p);
     }
 
     // lets check if there is a allocs variable in the program
@@ -681,7 +680,7 @@ static inline void br_free_context(BruterList *context)
         {
             free(bruter_pop((BruterList*)bruter_get(context, allocs_index).p).p);
         }
-        bruter_free(bruter_get(context, allocs_index).p);
+        bruter_free((BruterList*)bruter_get(context, allocs_index).p);
         context->data[allocs_index].p = NULL;
     }
     
@@ -756,7 +755,7 @@ static inline BruterList *br_get_parser(BruterList *context)
         parser_index = br_new_var(context, "parser");
         context->data[parser_index].p = br_simple_parser();
     }
-    return context->data[parser_index].p;
+    return (BruterList*)context->data[parser_index].p;
 }
 
 static inline BruterList *br_get_allocs(BruterList *context)
@@ -768,7 +767,7 @@ static inline BruterList *br_get_allocs(BruterList *context)
         allocs_index = br_new_var(context, "allocs");
         context->data[allocs_index].p = bruter_init(sizeof(BruterValue), false);
     }
-    return context->data[allocs_index].p;
+    return (BruterList*)context->data[allocs_index].p;
 }
 
 static inline BruterList *br_get_unused(BruterList *context)
@@ -780,7 +779,7 @@ static inline BruterList *br_get_unused(BruterList *context)
         bruter_push(context, (BruterValue){.p = bruter_init(sizeof(BruterValue), false)}, "unused");
         unused_index = context->size - 1;
     }
-    return context->data[unused_index].p;
+    return (BruterList*)context->data[unused_index].p;
 }
 
 static inline BruterInt br_add_function(BruterList *context, const char *name, void *func)

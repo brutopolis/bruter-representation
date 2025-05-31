@@ -1,5 +1,5 @@
 
-# br
+# Bruter Representation
 
   br stands for (B)RUTER (R)epresentation, it is a bruter-based language;
 
