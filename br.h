@@ -550,10 +550,6 @@ static inline BruterList* br_parse(BruterList *context, BruterList* parser, cons
     char* str = NULL;
     BruterInt i = 0;
 
-    // remove empty or whitespace-only strings using isspace
-    BruterInt last = splited->size - 1;
-    
-
     for (i = 0; i < splited->size; i++)
     {
         str = splited->data[i].s;
