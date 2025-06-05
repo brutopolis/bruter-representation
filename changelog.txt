@@ -1,5 +1,11 @@
 
-# br changelog https://github.com/brutopolis/br
+# br changelog https://github.com/brutopolis/bruter-representation
+
+(05/06/2025) - version 1.0.7
+
+- br_new_var now receives a third argument, which is the value;
+- new parser step: char;
+- some fixes in the string splitters, no more support to '' and "" delimiters(although it wasnt used anyway);
 
 (28/05/2025) - version 1.0.6
 

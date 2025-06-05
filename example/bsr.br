@@ -1,0 +1,37 @@
+load {std};
+load {math};
+load {io};
+load {condition};
+load {bsr};
+
+ignore (bsr.new {window title "BSR Example"} 320 240) @win;
+while {bsr.wait_sync win} 
+{
+    bsr.fill win 0xFF005555;
+    bsr.circle win 160 120 50 0x7700FF00;
+    bsr.line win 0 0 320 240 0xFF0000FF;
+    bsr.line win 320 0 0 240 0xFF0000FF;
+    bsr.rect win 10 10 30 22 0x7700FFFF;
+    bsr.update win;
+
+    if {bsr.is_key_pressed win ('W')}
+    {
+        print.string {You pressed W!};
+        bsr.fill win 0xFF000055;
+    };
+
+    if {bsr.is_key_pressed win ('S')}
+    {
+        print.string {You pressed S!};
+        bsr.fill win 0xFF000055;
+    };
+    
+    if {bsr.is_key_pressed win 256} 
+    {
+        print.string {You pressed ESC!} @msg;
+        bsr.close win;
+        return 1;
+    }
+}
+
+bsr.close win;

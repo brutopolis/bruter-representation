@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stddef.h>
 
-#define BR_VERSION "1.0.6"
+#define BR_VERSION "1.0.7"
 
 #define BR_INIT(name) void init_##name(BruterList *context)
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
@@ -38,7 +38,7 @@ static inline char*         br_str_format(const char *format, ...);
 
 static inline BruterList*   br_simple_parser(); // returns a parser with the basic steps
 
-static inline BruterInt     br_new_var(BruterList *context, const char* key);
+static inline BruterInt     br_new_var(BruterList *context, BruterValue value, const char* key);
 
 static inline BruterValue   br_parser_number(const char *str);
 static inline BruterList*   br_parse(BruterList *context, BruterList *parser, const char *cmd);
@@ -170,201 +170,97 @@ static inline char* br_str_format(const char *format, ...)
 static inline BruterList* br_str_space_split(const char *str)
 {
     BruterList *splited = bruter_init(sizeof(void*), false);
-    
     int i = 0;
     while (str[i] != '\0')
     {
         if (str[i] == '(')
         {
-            int j = i;
-            int count = 1;
-            while (count != 0)
+            int j = i + 1, count = 1;
+            while (count != 0 && str[j] != '\0')
             {
+                if (str[j] == '(' && str[j - 1] != '\\') count++;
+                else if (str[j] == ')' && str[j - 1] != '\\') count--;
                 j++;
-                if (str[j] == '(' && (j == 0 || str[j-1] != '\\'))
-                {
-                    count++;
-                }
-                else if (str[j] == ')' && (j == 0 || str[j-1] != '\\'))
-                {
-                    count--;
-                }
             }
-            char *tmp = br_str_nduplicate(str + i, j - i + 1);
-            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-            i = j + 1;
+            if (count == 0) {
+                char *tmp = br_str_nduplicate(str + i, j - i);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
+                i = j;
+                continue;
+            }
         }
         else if (str[i] == '{')
         {
-            int j = i;
-            int count = 1;
-            while (count != 0)
+            int j = i + 1, count = 1;
+            while (count != 0 && str[j] != '\0')
             {
+                if (str[j] == '{' && str[j - 1] != '\\') count++;
+                else if (str[j] == '}' && str[j - 1] != '\\') count--;
                 j++;
-                if (str[j] == '{' && (j == 0 || str[j-1] != '\\'))
-                {
-                    count++;
-                }
-                else if (str[j] == '}' && (j == 0 || str[j-1] != '\\'))
-                {
-                    count--;
-                }
             }
-            char *tmp = br_str_nduplicate(str + i, j - i + 1);
-            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-            i = j + 1;
+            if (count == 0) {
+                char *tmp = br_str_nduplicate(str + i, j - i);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
+                i = j;
+                continue;
+            }
         }
         else if (str[i] == '[')
         {
-            int j = i;
-            int count = 1;
-            while (count != 0)
+            int j = i + 1, count = 1;
+            while (count != 0 && str[j] != '\0')
             {
+                if (str[j] == '[' && str[j - 1] != '\\') count++;
+                else if (str[j] == ']' && str[j - 1] != '\\') count--;
                 j++;
-                if (str[j] == '[' && (j == 0 || str[j-1] != '\\'))
-                {
-                    count++;
-                }
-                else if (str[j] == ']' && (j == 0 || str[j-1] != '\\'))
-                {
-                    count--;
-                }
             }
-            char *tmp = br_str_nduplicate(str + i, j - i + 1);
-            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-            i = j + 1;
-        }
-        else if (str[i] == '"') // with strchr
-        {
-            const char *next_quote = strchr(str + i + 1, '"');
-            if (next_quote != NULL)
-            {
-                char *tmp = br_str_nduplicate(str + i, next_quote - str + 1);
+            if (count == 0) {
+                char *tmp = br_str_nduplicate(str + i, j - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                i = next_quote - str + 1;
-            }
-            else
-            {
-                char *tmp = br_str_nduplicate(str + i, strlen(str) - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                break;
+                i = j;
+                continue;
             }
         }
-        else if (str[i] == '\'') // with strchr
-        {
-            const char *next_quote = strchr(str + i + 1, '\'');
-            if (next_quote != NULL)
-            {
-                char *tmp = br_str_nduplicate(str + i, next_quote - str + 1);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                i = next_quote - str + 1;
-            }
-            else
-            {
-                char *tmp = br_str_nduplicate(str + i, strlen(str) - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                break;
-            }
-        }
-        else if (isspace(str[i]))
+        else if (isspace((unsigned char)str[i]))
         {
             i++;
+            continue;
         }
         else
         {
             int j = i;
-            while (!isspace(str[j]) && str[j] != '\0')
-            {
-                j++;
-            }
-            bruter_push(splited, (BruterValue) {.s = br_str_nduplicate(str + i, j - i)}, NULL);
+            while (str[j] != '\0' && !isspace((unsigned char)str[j])) j++;
+            char *tmp = br_str_nduplicate(str + i, j - i);
+            bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             i = j;
         }
     }
     return splited;
 }
 
-
 static inline BruterList* br_str_split(const char *str, char delim)
 {
     BruterList *splited = bruter_init(sizeof(void*), false);
-    
-    int recursion = 0;
-    int curly = 0;
-    int bracket = 0;
-    
-    int i = 0;
-    int last_i = 0;
-
+    int recursion = 0, curly = 0, bracket = 0;
+    int i = 0, last_i = 0;
     while (str[i] != '\0')
     {
-        if (str[i] == '(' && (i == 0 || str[i-1] != '\\') && !curly && !bracket)
-        {
-            recursion++;
-        }
-        else if (str[i] == ')' && (i == 0 || str[i-1] != '\\') && !curly && !bracket)
-        {
-            recursion--;
-        }
-        else if (str[i] == '{' && (i == 0 || str[i-1] != '\\') && !recursion && !bracket)
-        {
-            curly++;
-        }
-        else if (str[i] == '}' && (i == 0 || str[i-1] != '\\') && !recursion && !bracket)
-        {
-            curly--;
-        }
-        else if (str[i] == '[' && (i == 0 || str[i-1] != '\\') && !recursion && !curly)
-        {
-            bracket++;
-        }
-        else if (str[i] == ']' && (i == 0 || str[i-1] != '\\') && !recursion && !curly)
-        {
-            bracket--;
-        }
-        else if (str[i] == '"' && (i == 0 || str[i-1] != '\\') && !recursion && !curly && !bracket)
-        {
-            const char *next_quote = strchr(str + i + 1, '"');
-            if (next_quote != NULL)
-            {
-                char* tmp = br_str_nduplicate(str + i, next_quote - str + 1);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                i = next_quote - str + 1;
-            }
-            else
-            {
-                char* tmp = br_str_nduplicate(str + i, strlen(str) - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                break;
-            }
-        }
-        else if (str[i] == '\'' && (i == 0 || str[i-1] != '\\') && !recursion && !curly && !bracket)
-        {
-            const char *next_quote = strchr(str + i + 1, '\'');
-            if (next_quote != NULL)
-            {
-                char* tmp = br_str_nduplicate(str + i, next_quote - str + 1);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                i = next_quote - str + 1;
-            }
-            else
-            {
-                char* tmp = br_str_nduplicate(str + i, strlen(str) - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL);
-                break;
-            }
-        }
-
+        if (str[i] == '(' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket) recursion++;
+        else if (str[i] == ')' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket) recursion--;
+        else if (str[i] == '{' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket) curly++;
+        else if (str[i] == '}' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket) curly--;
+        else if (str[i] == '[' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly) bracket++;
+        else if (str[i] == ']' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly) bracket--;
 
         if (str[i] == delim && !recursion && !curly && !bracket)
         {
-            char* tmp = br_str_nduplicate(str + last_i, i - last_i);
+            char *tmp = br_str_nduplicate(str + last_i, i - last_i);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL);
             last_i = i + 1;
         }
         else if (str[i + 1] == '\0')
         {
-            char* tmp = br_str_nduplicate(str + last_i, i - last_i + 1);
+            char *tmp = br_str_nduplicate(str + last_i, i - last_i + 1);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL);
         }
 
@@ -375,7 +271,7 @@ static inline BruterList* br_str_split(const char *str, char delim)
 
 
 // var new 
-static inline BruterInt br_new_var(BruterList *context, const char* key)
+static inline BruterInt br_new_var(BruterList *context, BruterValue value, const char* key)
 {
     BruterList *unused = br_get_unused(context);
     if (unused->size > 0)
@@ -386,13 +282,12 @@ static inline BruterInt br_new_var(BruterList *context, const char* key)
         {
             context->keys[_value.i] = br_str_duplicate(key);
         }
+        context->data[_value.i] = value;
         return _value.i;
     }
     else 
     {
-        BruterValue _value;
-        _value.p = NULL;
-        bruter_push(context, _value, key);
+        bruter_push(context, value, key);
         return context->size-1;
     }
 }
@@ -423,6 +318,112 @@ static inline BruterValue br_parser_number(const char *str)
     return result;
 }
 
+static inline BR_PARSER_STEP(parser_char)
+{
+    if (str[0] == '(' && str[1] == '\'')
+    {
+        if (str[2] == '\\') // escaped character
+        {
+            if (str[3] == '\'')
+            {
+                BruterInt index = br_new_var(context, bruter_value_i('\''), NULL);
+                bruter_push(result, (BruterValue){.i = index}, NULL);
+                return true;
+            }
+            else if (str[3] == 'n') // newline
+            {
+                BruterInt index = br_new_var(context, bruter_value_i('\n'), NULL);
+                bruter_push(result, (BruterValue){.i = index}, NULL);
+                return true;
+            }
+            else if (str[3] == 't') // tab
+            {
+                BruterInt index = br_new_var(context, bruter_value_i('\t'), NULL);
+                bruter_push(result, (BruterValue){.i = index}, NULL);
+                return true;
+            }
+            else if (str[3] == 'r') // carriage return
+            {
+                BruterInt index = br_new_var(context, bruter_value_i('\r'), NULL);
+                bruter_push(result, (BruterValue){.i = index}, NULL);
+                return true;
+            }
+            else if (str[3] == 'b') // backspace
+            {
+                BruterInt index = br_new_var(context, bruter_value_i('\b'), NULL);
+                bruter_push(result, (BruterValue){.i = index}, NULL);
+                return true;
+            }
+            else if (str[3] == 'f') // form feed
+            {
+                BruterInt index = br_new_var(context, bruter_value_i('\f'), NULL);
+                bruter_push(result, (BruterValue){.i = index}, NULL);
+                return true;
+            }
+            else if (str[3] == 'v') // vertical tab
+            {
+                BruterInt index = br_new_var(context, bruter_value_i('\v'), NULL);
+                bruter_push(result, (BruterValue){.i = index}, NULL);
+                return true;
+            }
+            else if (str[3] == 'x') // hex character
+            {
+                char *endptr;
+                BruterInt value = strtol(str + 4, &endptr, 16);
+                if (*endptr == '\'')
+                {
+                    BruterInt index = br_new_var(context, bruter_value_i(value), NULL);
+                    bruter_push(result, (BruterValue){.i = index}, NULL);
+                    return true;
+                }
+            }
+            else if (str[3] == 'u') // unicode character
+            {
+                char *endptr;
+                BruterInt value = strtol(str + 4, &endptr, 16);
+                if (*endptr == '\'')
+                {
+                    BruterInt index = br_new_var(context, bruter_value_i(value), NULL);
+                    bruter_push(result, (BruterValue){.i = index}, NULL);
+                    return true;
+                }
+            }
+            else // unknown escape sequence
+            {
+                printf("BR_ERROR: unknown escape sequence %s\n", str);
+                bruter_push(result, (BruterValue){.i = -1}, NULL);
+                return false;
+            }
+        }
+        else if (str[2] == '\'') // empty character
+        {
+            BruterInt index = br_new_var(context, bruter_value_i('\0'), NULL);
+            bruter_push(result, (BruterValue){.i = index}, NULL);
+            return true;
+        } 
+        else if (str[2] != '\0') // single character
+        {
+            if (str[3] != '\'') // if the character is not closed
+            {
+                printf("BR_ERROR: character %s not closed\n", str);
+                bruter_push(result, (BruterValue){.i = -1}, NULL);
+                return false;
+            }
+            BruterInt index = br_new_var(context, bruter_value_i(str[2]), NULL);
+            bruter_push(result, (BruterValue){.i = index}, NULL);
+            return true;
+        }
+        else 
+        {
+            printf("BR_ERROR: invalid character %s\n", str);
+            bruter_push(result, (BruterValue){.i = -1}, NULL);
+            return false;
+        }
+    }
+    return false;
+}
+
+
 static inline BR_PARSER_STEP(parser_expression)
 {
     if (str[0] == '(')
@@ -446,8 +447,7 @@ static inline BR_PARSER_STEP(parser_string)
         bruter_push(_allocs, (BruterValue){.p = new_str}, NULL);
 
         BruterInt len = strlen(str);
-        BruterInt index = br_new_var(context, NULL);
-        context->data[index].p = new_str;
+        BruterInt index = br_new_var(context, bruter_value_p(new_str), NULL);
         bruter_push(result, (BruterValue){.i = index}, NULL);
         return true;
     }
@@ -458,7 +458,7 @@ static inline BR_PARSER_STEP(parser_number)
 {
     if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
     {
-        BruterInt index = br_new_var(context, NULL);
+        BruterInt index = br_new_var(context, bruter_value_p(NULL), NULL);
         context->data[index] = br_parser_number(str);
         bruter_push(result, (BruterValue){.i = index}, NULL);
         return true;
@@ -472,11 +472,11 @@ static inline BR_PARSER_STEP(parser_key)
     {
         if (result->size <= 0)
         {
-            printf("BR_ERROR:%s has no previous value\n", str);
+            printf("BR_ERROR: %s has no previous value\n", str);
         }
         else if (result->data[result->size - 1].i == -1)
         {
-            printf("BR_ERROR:%s previous value is not a variable\n", str);
+            printf("BR_ERROR: %s previous value is not a variable\n", str);
         }
         else 
         {
@@ -531,6 +531,7 @@ static inline BR_PARSER_STEP(parser_variable)
 static inline BruterList* br_simple_parser()
 {
     BruterList *_parser = bruter_init(8, true);
+    bruter_push(_parser, (BruterValue){.p = parser_char}, "char");
     bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression");
     bruter_push(_parser, (BruterValue){.p = parser_string}, "string");
     bruter_push(_parser, (BruterValue){.p = parser_number}, "number");
@@ -722,7 +723,7 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
         BruterList *args = br_parse(context, parser, str);
         if (args->size == 0 || args->data[0].i == -1 || bruter_get(context, args->data[0].i).p == NULL)
         {
-            printf("BR_ERROR: empty command or invalid function\n");
+            //printf("BR_ERROR: empty command or invalid function\n");
             free(str);
             bruter_free(args);
             continue;
@@ -752,8 +753,12 @@ static inline BruterList *br_get_parser(BruterList *context)
     if (parser_index == -1)
     {
         printf("BR_WARN: parser not found, using simple parser\n");
-        parser_index = br_new_var(context, "parser");
-        context->data[parser_index].p = br_simple_parser();
+        parser_index = br_new_var(context, bruter_value_p(br_simple_parser()), "parser");
+        if (parser_index == -1)
+        {
+            printf("BR_ERROR: failed to create parser variable\n");
+            exit(EXIT_FAILURE);
+        }
     }
     return (BruterList*)context->data[parser_index].p;
 }
@@ -764,8 +769,12 @@ static inline BruterList *br_get_allocs(BruterList *context)
     if (allocs_index == -1)
     {
         printf("BR_WARN: allocs not found, creating it\n");
-        allocs_index = br_new_var(context, "allocs");
-        context->data[allocs_index].p = bruter_init(sizeof(BruterValue), false);
+        allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false)), "allocs");
+        if (allocs_index == -1)
+        {
+            printf("BR_ERROR: failed to create allocs variable\n");
+            exit(EXIT_FAILURE);
+        }
     }
     return (BruterList*)context->data[allocs_index].p;
 }
@@ -784,8 +793,7 @@ static inline BruterList *br_get_unused(BruterList *context)
 
 static inline BruterInt br_add_function(BruterList *context, const char *name, void *func)
 {
-    BruterInt index = br_new_var(context, name);
-    bruter_set(context, index, bruter_value_p(func));
+    BruterInt index = br_new_var(context, bruter_value_p(func), name);
     return index;
 }
 
