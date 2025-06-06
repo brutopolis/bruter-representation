@@ -4,7 +4,7 @@ load {io};
 load {condition};
 load {bsr};
 
-ignore (bsr.new {window title "BSR Example"} 320 240) @win;
+# (bsr.new {window title "BSR Example"} 320 240) @win;
 while {bsr.wait_sync win} 
 {
     bsr.fill win 0xFF005555;
@@ -25,13 +25,13 @@ while {bsr.wait_sync win}
         print.string {You pressed S!};
         bsr.fill win 0xFF000055;
     };
-    
-    if {bsr.is_key_pressed win 256} 
+
+    if {bsr.is_key_pressed win ('Q')} 
     {
-        print.string {You pressed ESC!} @msg;
+        print.string {You pressed Q!} @msg;
         bsr.close win;
         return 1;
-    }
+    };
 }
 
 bsr.close win;

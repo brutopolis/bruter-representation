@@ -17,6 +17,8 @@
 
 - `@` = key operator
 
+- `$` = next operator
+
 # Language usage
 
     command;
@@ -33,6 +35,7 @@
     command value @key;
     [0] ...;
     [(command ...) variable] ...;
+    command $next_value value;
 
 # BRUTER
 

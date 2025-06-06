@@ -488,6 +488,33 @@ static inline BR_PARSER_STEP(parser_key)
     return false;
 }
 
+static inline BR_PARSER_STEP(parser_next) // make sure the next created value is under the specified key
+{
+    if (str[0] == '$') // next key
+    {
+        BruterList *unused = br_get_unused(context);
+        BruterList *allocs = br_get_allocs(context);
+        BruterInt found = bruter_find(context, (BruterValue){.p = NULL}, str + 1);
+        if (found == -1) // if the key is not found, we create a new one
+        {
+            BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, str + 1);
+            bruter_unshift(unused, (BruterValue){.i = index}, NULL);
+        }
+        else 
+        {
+            BruterInt found_alloc = bruter_find(allocs, (BruterValue){.i = found}, NULL);
+            if (found_alloc != -1) // if the variable is in allocs, we need to free it
+            {
+                free(bruter_fast_remove(allocs, found_alloc).p);
+            }
+            if (unused->size > 1) // it exists, we just swap it to the front if there are more than one unused variable
+                bruter_swap(unused, 0, found);
+        }
+        return true;
+    }
+    return false;
+}
+
 static inline BR_PARSER_STEP(parser_direct_access)
 {
     if (str[0] == '[') // direct access
@@ -530,12 +557,13 @@ static inline BR_PARSER_STEP(parser_variable)
 // SKETCH
 static inline BruterList* br_simple_parser()
 {
-    BruterList *_parser = bruter_init(8, true);
+    BruterList *_parser = bruter_init(16, true);
     bruter_push(_parser, (BruterValue){.p = parser_char}, "char");
     bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression");
     bruter_push(_parser, (BruterValue){.p = parser_string}, "string");
     bruter_push(_parser, (BruterValue){.p = parser_number}, "number");
     bruter_push(_parser, (BruterValue){.p = parser_key}, "key");
+    bruter_push(_parser, (BruterValue){.p = parser_next}, "next");
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access");
     bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable");
     return _parser;

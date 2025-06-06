@@ -6,6 +6,7 @@
 - br_new_var now receives a third argument, which is the value;
 - new parser step: char;
 - some fixes in the string splitters, no more support to '' and "" delimiters(although it wasnt used anyway);
+- new operator: $, it defines the next variable to be used using the variable with the name pointed by $name, if the variable already exists it will be freed and used, else it will create a variable with the name pointed by $name;
 
 (28/05/2025) - version 1.0.6
 

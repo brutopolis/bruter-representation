@@ -2,10 +2,10 @@ load {std};
 load {string};
 load {io};
 
-ignore {abcdefghijklmnopqrstuvwxyz} @str0;
-ignore {ABCDEFGHIJKLMNOPQRSTUVWXYZ} @str1;
+# {abcdefghijklmnopqrstuvwxyz} @str0;
+# {ABCDEFGHIJKLMNOPQRSTUVWXYZ} @str1;
 ls;
-ignore (string.concat str0 str1) @c;
+# (string.concat str0 str1) @c;
 ls;
 
 print.string (string.format {str1: %s\n} str1) @a;

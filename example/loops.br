@@ -2,7 +2,7 @@ load {std};
 load {math};
 load {io};
 
-ignore 
+# 
 0 @_index 
 1 @_1;
 
