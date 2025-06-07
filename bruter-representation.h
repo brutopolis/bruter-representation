@@ -496,7 +496,7 @@ static inline BR_PARSER_STEP(parser_next) // make sure the next created value is
         BruterList *allocs = br_get_allocs(context);
         if (isdigit(str[1])) // if the next key is a number, we will use it as an index
         {
-            BruterInt index = atoi(str + 1);
+            BruterInt index = atol(str + 1);
             if (index < 0 || index >= unused->size)
             {
                 printf("BR_ERROR: index %d out of range in unused list of size %d\n", index, unused->size);
