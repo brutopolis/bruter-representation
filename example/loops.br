@@ -2,9 +2,7 @@ load {std};
 load {math};
 load {io};
 
-# 
-0 @_index 
-1 @_1;
+# $_index 0 $_1 1;
 
 repeat 100000 @size 
 {

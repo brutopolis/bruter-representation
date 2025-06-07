@@ -494,21 +494,36 @@ static inline BR_PARSER_STEP(parser_next) // make sure the next created value is
     {
         BruterList *unused = br_get_unused(context);
         BruterList *allocs = br_get_allocs(context);
-        BruterInt found = bruter_find(context, (BruterValue){.p = NULL}, str + 1);
-        if (found == -1) // if the key is not found, we create a new one
+        if (isdigit(str[1])) // if the next key is a number, we will use it as an index
         {
-            BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, str + 1);
-            bruter_unshift(unused, (BruterValue){.i = index}, NULL);
-        }
-        else 
-        {
-            BruterInt found_alloc = bruter_find(allocs, (BruterValue){.i = found}, NULL);
-            if (found_alloc != -1) // if the variable is in allocs, we need to free it
+            BruterInt index = atoi(str + 1);
+            if (index < 0 || index >= unused->size)
             {
-                free(bruter_fast_remove(allocs, found_alloc).p);
+                printf("BR_ERROR: index %d out of range in unused list of size %d\n", index, unused->size);
+                bruter_push(result, (BruterValue){.i = -1}, NULL);
+                return false;
             }
-            if (unused->size > 1) // it exists, we just swap it to the front if there are more than one unused variable
-                bruter_swap(unused, 0, found);
+            // we will use the value at that index as the next key
+            context->keys[unused->data[index].i] = br_str_duplicate(str + 1);
+        }
+        else
+        {
+            BruterInt found = bruter_find(context, (BruterValue){.p = NULL}, str + 1);
+            if (found == -1) // if the key is not found, we create a new one
+            {
+                BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, str + 1);
+                bruter_unshift(unused, (BruterValue){.i = index}, NULL);
+            }
+            else 
+            {
+                BruterInt found_alloc = bruter_find(allocs, (BruterValue){.i = found}, NULL);
+                if (found_alloc != -1) // if the variable is in allocs, we need to free it
+                {
+                    free(bruter_fast_remove(allocs, found_alloc).p);
+                }
+                if (unused->size > 1) // it exists, we just swap it to the front if there are more than one unused variable
+                    bruter_swap(unused, 0, found);
+            }
         }
         return true;
     }
