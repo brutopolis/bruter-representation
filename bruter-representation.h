@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stddef.h>
 
-#define BR_VERSION "1.0.7"
+#define BR_VERSION "1.0.8"
 
 #define BR_INIT(name) void init_##name(BruterList *context)
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
@@ -55,6 +55,8 @@ static inline BruterList   *br_get_allocs(BruterList *context);
 static inline BruterList   *br_get_unused(BruterList *context);
 
 static inline BruterInt     br_add_function(BruterList *context, const char *name, void *func);
+
+static inline BruterList   *br_new_context(BruterInt size);
 static inline void          br_free_context(BruterList *context);
 
 // functions definitions
@@ -182,7 +184,8 @@ static inline BruterList* br_str_space_split(const char *str)
                 else if (str[j] == ')' && str[j - 1] != '\\') count--;
                 j++;
             }
-            if (count == 0) {
+            if (count == 0) 
+            {
                 char *tmp = br_str_nduplicate(str + i, j - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = j;
@@ -198,7 +201,8 @@ static inline BruterList* br_str_space_split(const char *str)
                 else if (str[j] == '}' && str[j - 1] != '\\') count--;
                 j++;
             }
-            if (count == 0) {
+            if (count == 0) 
+            {
                 char *tmp = br_str_nduplicate(str + i, j - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = j;
@@ -214,7 +218,8 @@ static inline BruterList* br_str_space_split(const char *str)
                 else if (str[j] == ']' && str[j - 1] != '\\') count--;
                 j++;
             }
-            if (count == 0) {
+            if (count == 0) 
+            {
                 char *tmp = br_str_nduplicate(str + i, j - i);
                 bruter_push(splited, (BruterValue){.s = tmp}, NULL);
                 i = j;
@@ -320,105 +325,11 @@ static inline BruterValue br_parser_number(const char *str)
 
 static inline BR_PARSER_STEP(parser_char)
 {
-    if (str[0] == '(' && str[1] == '\'')
+    if (str[0] == '\'' && str[2] == '\'')
     {
-        if (str[2] == '\\') // escaped character
-        {
-            if (str[3] == '\'')
-            {
-                BruterInt index = br_new_var(context, bruter_value_i('\''), NULL);
-                bruter_push(result, (BruterValue){.i = index}, NULL);
-                return true;
-            }
-            else if (str[3] == 'n') // newline
-            {
-                BruterInt index = br_new_var(context, bruter_value_i('\n'), NULL);
-                bruter_push(result, (BruterValue){.i = index}, NULL);
-                return true;
-            }
-            else if (str[3] == 't') // tab
-            {
-                BruterInt index = br_new_var(context, bruter_value_i('\t'), NULL);
-                bruter_push(result, (BruterValue){.i = index}, NULL);
-                return true;
-            }
-            else if (str[3] == 'r') // carriage return
-            {
-                BruterInt index = br_new_var(context, bruter_value_i('\r'), NULL);
-                bruter_push(result, (BruterValue){.i = index}, NULL);
-                return true;
-            }
-            else if (str[3] == 'b') // backspace
-            {
-                BruterInt index = br_new_var(context, bruter_value_i('\b'), NULL);
-                bruter_push(result, (BruterValue){.i = index}, NULL);
-                return true;
-            }
-            else if (str[3] == 'f') // form feed
-            {
-                BruterInt index = br_new_var(context, bruter_value_i('\f'), NULL);
-                bruter_push(result, (BruterValue){.i = index}, NULL);
-                return true;
-            }
-            else if (str[3] == 'v') // vertical tab
-            {
-                BruterInt index = br_new_var(context, bruter_value_i('\v'), NULL);
-                bruter_push(result, (BruterValue){.i = index}, NULL);
-                return true;
-            }
-            else if (str[3] == 'x') // hex character
-            {
-                char *endptr;
-                BruterInt value = strtol(str + 4, &endptr, 16);
-                if (*endptr == '\'')
-                {
-                    BruterInt index = br_new_var(context, bruter_value_i(value), NULL);
-                    bruter_push(result, (BruterValue){.i = index}, NULL);
-                    return true;
-                }
-            }
-            else if (str[3] == 'u') // unicode character
-            {
-                char *endptr;
-                BruterInt value = strtol(str + 4, &endptr, 16);
-                if (*endptr == '\'')
-                {
-                    BruterInt index = br_new_var(context, bruter_value_i(value), NULL);
-                    bruter_push(result, (BruterValue){.i = index}, NULL);
-                    return true;
-                }
-            }
-            else // unknown escape sequence
-            {
-                printf("BR_ERROR: unknown escape sequence %s\n", str);
-                bruter_push(result, (BruterValue){.i = -1}, NULL);
-                return false;
-            }
-        }
-        else if (str[2] == '\'') // empty character
-        {
-            BruterInt index = br_new_var(context, bruter_value_i('\0'), NULL);
-            bruter_push(result, (BruterValue){.i = index}, NULL);
-            return true;
-        } 
-        else if (str[2] != '\0') // single character
-        {
-            if (str[3] != '\'') // if the character is not closed
-            {
-                printf("BR_ERROR: character %s not closed\n", str);
-                bruter_push(result, (BruterValue){.i = -1}, NULL);
-                return false;
-            }
-            BruterInt index = br_new_var(context, bruter_value_i(str[2]), NULL);
-            bruter_push(result, (BruterValue){.i = index}, NULL);
-            return true;
-        }
-        else 
-        {
-            printf("BR_ERROR: invalid character %s\n", str);
-            bruter_push(result, (BruterValue){.i = -1}, NULL);
-            return false;
-        }
+        BruterInt index = br_new_var(context, (BruterValue){.i = str[1]}, NULL);
+        bruter_push(result, (BruterValue){.i = index}, NULL);
+        return true;
     }
     return false;
 }
@@ -552,6 +463,55 @@ static inline BR_PARSER_STEP(parser_direct_access)
     return false;
 }
 
+static inline BR_PARSER_STEP(parser_recursion)
+{
+    if (strchr(str, '.') > str)
+    {
+        // this is a recursion step, we will split the string by '.' and call the next step with the rest of the string
+        char* temp = br_str_duplicate(str);
+        char* tok = strtok(temp, ".");
+        BruterList *current_list = context;
+        
+        while (tok != NULL)
+        {
+            if (isdigit(tok[0]))
+            {
+                // if the first token is a number, we will use it as an index
+                BruterInt index = atol(tok);
+                if (index < 0 || index >= current_list->size)
+                {
+                    printf("BR_ERROR: index %d out of range in current list of size %d\n", index, context->size);
+                    bruter_push(result, (BruterValue){.i = -1}, NULL);
+                    free(temp);
+                    return true; // we return true to indicate that we handled the step, even if it failed
+                }
+                current_list = (BruterList*)current_list->data[index].p;
+            }
+            else 
+            {
+                // if the first token is not a number, we will use it as a key
+                BruterInt index = bruter_find(current_list, (BruterValue){.p = NULL}, tok);
+                if (index == -1)
+                {
+                    printf("BR_ERROR: key %s not found in current list\n", tok);
+                    bruter_push(result, (BruterValue){.i = -1}, NULL);
+                    free(temp);
+                    return true; // we return true to indicate that we handled the step, even if it failed
+                }
+                current_list = (BruterList*)current_list->data[index].p;
+            }
+
+            tok = strtok(NULL, ".");
+        }
+        free(temp);
+        // lets push the current list to the result
+        BruterInt index = br_new_var(context, (BruterValue){.p = current_list}, NULL);
+        bruter_push(result, (BruterValue){.i = index}, NULL);
+        return true;
+    } 
+    return false;
+}
+
 static inline BR_PARSER_STEP(parser_variable)
 {
     BruterInt index = bruter_find(context, (BruterValue){.p = NULL}, str);
@@ -580,6 +540,7 @@ static inline BruterList* br_simple_parser()
     bruter_push(_parser, (BruterValue){.p = parser_key}, "key");
     bruter_push(_parser, (BruterValue){.p = parser_next}, "next");
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access");
+    bruter_push(_parser, (BruterValue){.p = parser_recursion}, "recursion");
     bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable");
     return _parser;
 }
@@ -698,6 +659,27 @@ static inline void br_compiled_free(BruterList *compiled)
         bruter_free(args);
     }
     bruter_free(compiled);
+}
+
+static inline BruterList *br_new_context(BruterInt initial_size)
+{
+    BruterList* context = bruter_init(16, true); // starts with capacity of 16 vars, to avoid reallocations, it will grow as needed
+    // those could be done automatically when needed, but would print a warning
+    // lets push the unused list to the context
+    // we do this manually because br_new_var would automatically create the unused list if it does not exist
+    bruter_push(context, bruter_value_p(bruter_init(sizeof(BruterValue), false)), "unused");
+
+    // lets push the parser to the context
+    BruterList *parser = br_simple_parser();
+    BruterInt parser_index = br_new_var(context, bruter_value_p(parser), "parser");
+    
+    // lets push the args to the context
+    BruterInt allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false)), "allocs");
+
+    // lets push the context into the context itself
+    bruter_push(context, (BruterValue){.p = context}, "context");
+
+    return context;
 }
 
 static inline void br_free_context(BruterList *context)

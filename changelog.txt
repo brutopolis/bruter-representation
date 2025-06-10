@@ -1,6 +1,10 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
+(10/06/2025) - version 1.0.8
+
+- new parser step: recursion;
+
 (05/06/2025) - version 1.0.7
 
 - br_new_var now receives a third argument, which is the value;

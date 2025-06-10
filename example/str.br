@@ -5,11 +5,11 @@ load {io};
 # {abcdefghijklmnopqrstuvwxyz} @str0;
 # {ABCDEFGHIJKLMNOPQRSTUVWXYZ} @str1;
 ls;
-# (string.concat str0 str1) @c;
+# (string_concat str0 str1) @c;
 ls;
 
-print.string (string.format {str1: %s\n} str1) @a;
-print.string a;
-print.string {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} @b;
-print.string c;
+print_string (string_format {str1: %s\n} str1) @a;
+print_string a;
+print_string {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} @b;
+print_string c;
 return 0;

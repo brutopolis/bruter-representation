@@ -2,15 +2,15 @@ load {std};
 load {list};
 load {io};
 
-# (list.init) @cmd;
-# (list.init 1) @ctx;
+# (list_init) @cmd;
+# (list_init 1) @ctx;
 # {lets add some functions to the list};
 
-list.push ctx [return];
-list.push ctx [88];
-list.push cmd [0];
-list.push cmd [1];
+list_push ctx [return];
+list_push ctx [88];
+list_push cmd [0];
+list_push cmd [1];
 
-print.int (list.call ctx cmd);
+print_int (list_call ctx cmd);
 
 return 4;

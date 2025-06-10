@@ -1,6 +1,6 @@
 load {dycc};
 
-dycc.compile {
+dycc_compile {
 
     BR_FUNCTION(abc)
     {   
