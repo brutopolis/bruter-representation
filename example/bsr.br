@@ -13,22 +13,21 @@ while {bsr.wait_sync win}
     bsr.line win 0 0 320 240 0xFF0000FF;
     bsr.line win 320 0 0 240 0xFF0000FF;
     bsr.rect win 10 10 30 22 0x7700FFFF;
-    print.string {Press W or S to change color, Q to quit} @msg;
     bsr.update win;
 
-    if {bsr.is_key_pressed win ('W')}
+    if {bsr.is_key_pressed win 'W'}
     {
         print.string {You pressed W!};
         bsr.fill win 0xFF000055;
     };
 
-    if {bsr.is_key_pressed win ('S')}
+    if {bsr.is_key_pressed win 'S'}
     {
         print.string {You pressed S!};
         bsr.fill win 0xFF000055;
     };
 
-    if {bsr.is_key_pressed win ('Q')} 
+    if {bsr.is_key_pressed win 'Q'} 
     {
         print.string {You pressed Q!} @msg;
         bsr.close win;
