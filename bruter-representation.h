@@ -169,7 +169,7 @@ static inline char* br_str_format(const char *format, ...)
 
 static inline BruterList* br_str_space_split(const char *str)
 {
-    BruterList *splited = bruter_init(sizeof(void*), false);
+    BruterList *splited = bruter_init(sizeof(void*), false, false);
     int i = 0;
     while (str[i] != '\0')
     {
@@ -243,7 +243,7 @@ static inline BruterList* br_str_space_split(const char *str)
 
 static inline BruterList* br_str_split(const char *str, char delim)
 {
-    BruterList *splited = bruter_init(sizeof(void*), false);
+    BruterList *splited = bruter_init(sizeof(void*), false, false);
     int recursion = 0, curly = 0, bracket = 0;
     int i = 0, last_i = 0;
     while (str[i] != '\0')
@@ -481,7 +481,7 @@ static inline BR_PARSER_STEP(parser_variable)
 // SKETCH
 static inline BruterList* br_simple_parser()
 {
-    BruterList *_parser = bruter_init(16, true);
+    BruterList *_parser = bruter_init(16, true, false);
     bruter_push(_parser, (BruterValue){.p = parser_char}, "char");
     bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression");
     bruter_push(_parser, (BruterValue){.p = parser_string}, "string");
@@ -496,7 +496,7 @@ static inline BruterList* br_simple_parser()
 // Parser functions
 static inline BruterList* br_parse(BruterList *context, BruterList* parser, const char *cmd) 
 {
-    BruterList *result = bruter_init(sizeof(void*), false);
+    BruterList *result = bruter_init(sizeof(void*), false, false);
     
     BruterList *splited = br_str_space_split(cmd);
     char* str = NULL;
@@ -527,7 +527,7 @@ static inline BruterList* br_parse(BruterList *context, BruterList* parser, cons
 static inline BruterList* br_compile_code(BruterList *context, BruterList *parser, const char *cmd) 
 {
     BruterList *splited = br_str_split(cmd, ';');
-    BruterList *compiled = bruter_init(sizeof(void*), false);
+    BruterList *compiled = bruter_init(sizeof(void*), false, false);
 
     // remove empty or whitespace-only strings using isspace
     BruterInt last = splited->size - 1;
@@ -582,7 +582,7 @@ static inline BruterInt br_compiled_call(BruterList *context, BruterList *compil
 
 static inline BruterList* br_compile_and_call(BruterList *context, BruterList* parser, const char *cmd)
 {
-    BruterList *compiled = bruter_init(sizeof(void*), false);
+    BruterList *compiled = bruter_init(sizeof(void*), false, false);
     BruterList *splited = br_str_split(cmd, ';');
     char* str = NULL;
     BruterInt result = -1;
@@ -611,18 +611,18 @@ static inline void br_compiled_free(BruterList *compiled)
 
 static inline BruterList *br_new_context(BruterInt initial_size)
 {
-    BruterList* context = bruter_init(16, true); // starts with capacity of 16 vars, to avoid reallocations, it will grow as needed
+    BruterList* context = bruter_init(16, true, true); // starts with capacity of 16 vars, to avoid reallocations, it will grow as needed
     // those could be done automatically when needed, but would print a warning
     // lets push the unused list to the context
     // we do this manually because br_new_var would automatically create the unused list if it does not exist
-    bruter_push(context, bruter_value_p(bruter_init(sizeof(BruterValue), false)), "unused");
+    bruter_push(context, bruter_value_p(bruter_init(sizeof(BruterValue), false, false)), "unused");
 
     // lets push the parser to the context
     BruterList *parser = br_simple_parser();
     BruterInt parser_index = br_new_var(context, bruter_value_p(parser), "parser");
     
     // lets push the args to the context
-    BruterInt allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false)), "allocs");
+    BruterInt allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false, false)), "allocs");
 
     // lets push the context into the context itself
     bruter_push(context, (BruterValue){.p = context}, "context");
@@ -742,7 +742,7 @@ static inline BruterList *br_get_allocs(BruterList *context)
     if (allocs_index == -1)
     {
         printf("BR_WARN: allocs not found, creating it\n");
-        allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false)), "allocs");
+        allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false, false)), "allocs");
         if (allocs_index == -1)
         {
             printf("BR_ERROR: failed to create allocs variable\n");
@@ -758,7 +758,7 @@ static inline BruterList *br_get_unused(BruterList *context)
     if (unused_index == -1)
     {
         printf("BR_WARN: unused not found, creating it\n");
-        bruter_push(context, (BruterValue){.p = bruter_init(sizeof(BruterValue), false)}, "unused");
+        bruter_push(context, (BruterValue){.p = bruter_init(sizeof(BruterValue), false, false)}, "unused");
         unused_index = context->size - 1;
     }
     return (BruterList*)context->data[unused_index].p;
