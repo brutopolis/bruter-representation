@@ -2,6 +2,5 @@ load {io};
 load {std};
 # {hello world!} @str;
 ls;
-print_int context.context.args;
-print_string str;
+print.string str;
 return 0;

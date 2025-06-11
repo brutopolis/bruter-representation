@@ -7,7 +7,7 @@ load {io};
 repeat 100000 @size 
 {
     i+ _index _1;
-    print_int _index
+    print.int _index
 };
 ls;
 return 0;

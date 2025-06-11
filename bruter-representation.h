@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stddef.h>
 
-#define BR_VERSION "1.0.8"
+#define BR_VERSION "1.0.7"
 
 #define BR_INIT(name) void init_##name(BruterList *context)
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
@@ -55,8 +55,6 @@ static inline BruterList   *br_get_allocs(BruterList *context);
 static inline BruterList   *br_get_unused(BruterList *context);
 
 static inline BruterInt     br_add_function(BruterList *context, const char *name, void *func);
-
-static inline BruterList   *br_new_context(BruterInt size);
 static inline void          br_free_context(BruterList *context);
 
 // functions definitions
@@ -463,55 +461,6 @@ static inline BR_PARSER_STEP(parser_direct_access)
     return false;
 }
 
-static inline BR_PARSER_STEP(parser_recursion)
-{
-    if (strchr(str, '.') > str)
-    {
-        // this is a recursion step, we will split the string by '.' and call the next step with the rest of the string
-        char* temp = br_str_duplicate(str);
-        char* tok = strtok(temp, ".");
-        BruterList *current_list = context;
-        
-        while (tok != NULL)
-        {
-            if (isdigit(tok[0]))
-            {
-                // if the first token is a number, we will use it as an index
-                BruterInt index = atol(tok);
-                if (index < 0 || index >= current_list->size)
-                {
-                    printf("BR_ERROR: index %d out of range in current list of size %d\n", index, context->size);
-                    bruter_push(result, (BruterValue){.i = -1}, NULL);
-                    free(temp);
-                    return true; // we return true to indicate that we handled the step, even if it failed
-                }
-                current_list = (BruterList*)current_list->data[index].p;
-            }
-            else 
-            {
-                // if the first token is not a number, we will use it as a key
-                BruterInt index = bruter_find(current_list, (BruterValue){.p = NULL}, tok);
-                if (index == -1)
-                {
-                    printf("BR_ERROR: key %s not found in current list\n", tok);
-                    bruter_push(result, (BruterValue){.i = -1}, NULL);
-                    free(temp);
-                    return true; // we return true to indicate that we handled the step, even if it failed
-                }
-                current_list = (BruterList*)current_list->data[index].p;
-            }
-
-            tok = strtok(NULL, ".");
-        }
-        free(temp);
-        // lets push the current list to the result
-        BruterInt index = br_new_var(context, (BruterValue){.p = current_list}, NULL);
-        bruter_push(result, (BruterValue){.i = index}, NULL);
-        return true;
-    } 
-    return false;
-}
-
 static inline BR_PARSER_STEP(parser_variable)
 {
     BruterInt index = bruter_find(context, (BruterValue){.p = NULL}, str);
@@ -540,7 +489,6 @@ static inline BruterList* br_simple_parser()
     bruter_push(_parser, (BruterValue){.p = parser_key}, "key");
     bruter_push(_parser, (BruterValue){.p = parser_next}, "next");
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access");
-    bruter_push(_parser, (BruterValue){.p = parser_recursion}, "recursion");
     bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable");
     return _parser;
 }

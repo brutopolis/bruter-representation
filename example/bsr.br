@@ -4,34 +4,36 @@ load {io};
 load {condition};
 load {bsr};
 
-# (bsr_new {window title "BSR Example"} 320 240) @win;
-while {bsr_wait_sync win} 
+# (bsr.new {window title "BSR Example"} 320 240) @win;
+
+while {bsr.wait_sync win} 
 {
-    bsr_fill win 0xFF005555;
-    bsr_circle win 160 120 50 0x7700FF00;
-    bsr_line win 0 0 320 240 0xFF0000FF;
-    bsr_line win 320 0 0 240 0xFF0000FF;
-    bsr_rect win 10 10 30 22 0x7700FFFF;
-    bsr_update win;
+    bsr.fill win 0xFF005555;
+    bsr.circle win 160 120 50 0x7700FF00;
+    bsr.line win 0 0 320 240 0xFF0000FF;
+    bsr.line win 320 0 0 240 0xFF0000FF;
+    bsr.rect win 10 10 30 22 0x7700FFFF;
+    print.string {Press W or S to change color, Q to quit} @msg;
+    bsr.update win;
 
-    if {bsr_is_key_pressed win ('W')}
+    if {bsr.is_key_pressed win ('W')}
     {
-        print_string {You pressed W!};
-        bsr_fill win 0xFF000055;
+        print.string {You pressed W!};
+        bsr.fill win 0xFF000055;
     };
 
-    if {bsr_is_key_pressed win ('S')}
+    if {bsr.is_key_pressed win ('S')}
     {
-        print_string {You pressed S!};
-        bsr_fill win 0xFF000055;
+        print.string {You pressed S!};
+        bsr.fill win 0xFF000055;
     };
 
-    if {bsr_is_key_pressed win ('Q')} 
+    if {bsr.is_key_pressed win ('Q')} 
     {
-        print_string {You pressed Q!} @msg;
-        bsr_close win;
+        print.string {You pressed Q!} @msg;
+        bsr.close win;
         return 1;
     };
 }
 
-bsr_close win;
+bsr.close win;

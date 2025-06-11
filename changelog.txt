@@ -1,9 +1,9 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
-(10/06/2025) - version 1.0.8
+(10/06/2025) - version 1.0.7a
 
-- new parser step: recursion;
+- char step now reads only 'a' instead of ('a'), also it does not support escape codes and such only ascii characters, and special characters defined by minifb;
 
 (05/06/2025) - version 1.0.7
 
