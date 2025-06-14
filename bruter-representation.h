@@ -17,12 +17,11 @@
 enum BR_TYPES
 {
     BR_TYPE_NULL      = -1,   // null
-    BR_TYPE_INT       =  0,   // integer
+    BR_TYPE_ANY       =  0,   // integer or pointer
     BR_TYPE_FLOAT     =  1,   // float
-    BR_TYPE_STRING    =  2,   // string
-    BR_TYPE_POINTER   =  3,   // pointer
-    BR_TYPE_LIST      =  4,   // list
-    BR_TYPE_FUNCTION  =  5,   // function
+    BR_TYPE_BUFFER    =  2,   // strings and other allocated buffers, auto-dealocated at the end of the context
+    BR_TYPE_LIST      =  3,   // list
+    BR_TYPE_FUNCTION  =  4,   // function, same as any but executable
 };
 
 #define BR_INIT(name) void init_##name(BruterList *context)
@@ -33,13 +32,15 @@ enum BR_TYPES
 typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str);
 
 
-static inline BruterValue   br_arg(BruterList *context, BruterList *args, BruterInt arg_index);
-static inline char*         br_arg_key(BruterList *context, BruterList *args, BruterInt arg_index);
-static inline BruterInt     br_arg_index(BruterList *args, BruterInt arg_index);
-static inline BruterInt     br_arg_count(BruterList *args);
+static inline BruterValue   br_arg_get(BruterList *context, BruterList *args, BruterInt arg_index);
+static inline char*         br_arg_get_key(BruterList *context, BruterList *args, BruterInt arg_index);
+static inline int8_t        br_arg_get_type(BruterList *context, BruterList *args, BruterInt arg_index);
+static inline BruterInt     br_arg_get_index(BruterList *args, BruterInt arg_index);
+static inline BruterInt     br_arg_get_count(BruterList *args);
 
 static inline void          br_arg_set(BruterList *context, BruterList *args, BruterInt arg_index, BruterValue value);
 static inline void          br_arg_set_key(BruterList *context, BruterList *args, BruterInt arg_index, const char *key);
+static inline void          br_arg_set_type(BruterList *context, BruterList *args, BruterInt arg_index, int8_t type);
 static inline void          br_arg_set_index(BruterList *args, BruterInt arg_index, BruterInt index);
 
 static inline char*         br_str_duplicate(const char *str);
@@ -50,9 +51,12 @@ static inline char*         br_str_format(const char *format, ...);
 
 static inline BruterList*   br_simple_parser(); // returns a parser with the basic steps
 
+static inline BruterList*   br_new_context(BruterInt size);
 static inline BruterInt     br_new_var(BruterList *context, BruterValue value, const char* key, int8_t type);
+static inline void          br_delete_var(BruterList *context, BruterInt index);
 
 static inline BruterList*   br_parse(BruterList *context, BruterList *parser, const char *cmd);
+static inline BruterInt     br_evaluate(BruterList *context, BruterList *parser, BruterList *args);
 static inline BruterInt     br_eval(BruterList *context, BruterList *parser, const char *cmd);
 
 
@@ -62,7 +66,6 @@ static inline BruterInt     br_compiled_call(BruterList *context, BruterList *co
 static inline void          br_compiled_free(BruterList *compiled);
 
 static inline BruterList   *br_get_parser(BruterList *context);
-static inline BruterList   *br_get_allocs(BruterList *context);
 static inline BruterList   *br_get_unused(BruterList *context);
 
 static inline BruterInt     br_add_function(BruterList *context, const char *name, void *func);
@@ -75,22 +78,27 @@ static inline void          br_free_context(BruterList *context);
 // functions definitions
 
 // arg stuff
-static inline BruterValue br_arg(BruterList *context, BruterList *args, BruterInt arg_index)
+static inline BruterValue br_arg_get(BruterList *context, BruterList *args, BruterInt arg_index)
 {
     return context->data[args->data[arg_index+1].i];
 }
 
-static inline char* br_arg_key(BruterList *context, BruterList *args, BruterInt arg_index)
+static inline char* br_arg_get_key(BruterList *context, BruterList *args, BruterInt arg_index)
 {
     return context->keys[args->data[arg_index+1].i];
 }
 
-static inline BruterInt br_arg_index(BruterList *args, BruterInt arg_index)
+static inline int8_t br_arg_get_type(BruterList *context, BruterList *args, BruterInt arg_index)
+{
+    return context->types[args->data[arg_index+1].i];
+}
+
+static inline BruterInt br_arg_get_index(BruterList *args, BruterInt arg_index)
 {
     return args->data[arg_index+1].i;
 }
 
-static inline BruterInt br_arg_count(BruterList *args)
+static inline BruterInt br_arg_get_count(BruterList *args)
 {
     return args->size - 1;
 }
@@ -102,12 +110,6 @@ static inline void br_arg_set(BruterList *context, BruterList *args, BruterInt a
 
 static inline void br_arg_set_key(BruterList *context, BruterList *args, BruterInt arg_index, const char *key)
 {
-    if (context->keys == NULL)
-    {
-        printf("BR_ERROR: br_arg_set_key called on a list that is not a table\n");
-        exit(EXIT_FAILURE);
-    }
-    
     if (args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size)
     {
         printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", args->data[arg_index+1].i, context->size);
@@ -116,6 +118,17 @@ static inline void br_arg_set_key(BruterList *context, BruterList *args, BruterI
     
     free(context->keys[args->data[arg_index+1].i]);
     context->keys[args->data[arg_index+1].i] = br_str_duplicate(key);
+}
+
+static inline void br_arg_set_type(BruterList *context, BruterList *args, BruterInt arg_index, int8_t type)
+{
+    if (args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size)
+    {
+        printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", args->data[arg_index+1].i, context->size);
+        exit(EXIT_FAILURE);
+    }
+
+    context->types[args->data[arg_index+1].i] = type;
 }
 
 static inline void br_arg_set_index(BruterList *args, BruterInt arg_index, BruterInt index)
@@ -306,11 +319,61 @@ static inline BruterInt br_new_var(BruterList *context, BruterValue value, const
     }
 }
 
+static inline void br_delete_var(BruterList *context, BruterInt index)
+{
+    if (index < 0 || index >= context->size)
+    {
+        printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", index, context->size);
+        return;
+    }
+    
+    // free the key if it exists
+    if (context->keys[index] != NULL)
+    {
+        free(context->keys[index]);
+        context->keys[index] = NULL;
+    }
+
+    switch (context->types[index])
+    {
+        case BR_TYPE_BUFFER:
+            // free the buffer if it exists
+            if (context->data[index].p != NULL)
+            {
+                free(context->data[index].p);
+            }
+            break;
+        case BR_TYPE_LIST:
+            // free the list if it exists
+            if (context->data[index].p != NULL)
+            {
+                bruter_free((BruterList*)context->data[index].p);
+            }
+            break;
+        case BR_TYPE_FUNCTION:
+            // free the function if it exists
+            if (context->data[index].p != NULL)
+            {
+                free(context->data[index].p);
+            }
+            break;
+        default:
+            break;
+    }
+
+    // reset the value and type
+    context->data[index] = (BruterValue){.i = -1};
+    context->types[index] = BR_TYPE_NULL;
+
+    // push it to the unused list
+    bruter_push(br_get_unused(context), (BruterValue){.i = index}, NULL, 0);
+}
+
 static inline BR_PARSER_STEP(parser_char)
 {
     if (str[0] == '\'' && str[2] == '\'')
     {
-        BruterInt index = br_new_var(context, (BruterValue){.i = str[1]}, NULL, BR_TYPE_INT);
+        BruterInt index = br_new_var(context, (BruterValue){.i = str[1]}, NULL, BR_TYPE_ANY);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
     }
@@ -335,12 +398,7 @@ static inline BR_PARSER_STEP(parser_string)
     if (str[0] == '{')
     {
         char* new_str = br_str_nduplicate(str + 1, strlen(str) - 2);
-        
-        BruterList* _allocs = br_get_allocs(context);
-        bruter_push(_allocs, (BruterValue){.p = new_str}, NULL, 0);
-
-        BruterInt len = strlen(str);
-        BruterInt index = br_new_var(context, bruter_value_p(new_str), NULL, BR_TYPE_STRING);
+        BruterInt index = br_new_var(context, bruter_value_p(new_str), NULL, BR_TYPE_BUFFER);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
     }
@@ -356,18 +414,18 @@ static inline BR_PARSER_STEP(parser_number)
         if (str[0] == '0' && str[1] == 'x') // hex
         {
             context->data[index].i = strtol(str+2, NULL, 16);
-            context->types[index] = BR_TYPE_INT;
+            context->types[index] = BR_TYPE_ANY;
         }
         else if (str[0] == '0' && str[1] == 'b') // bin
         {
             context->data[index].i = strtol(str+2, NULL, 2);
-            context->types[index] = BR_TYPE_INT;
+            context->types[index] = BR_TYPE_ANY;
             
         }
         else if (str[0] == '0' && str[1] == 'o') // oct
         {
             context->data[index].i = strtol(str+2, NULL, 8);
-            context->types[index] = BR_TYPE_INT;
+            context->types[index] = BR_TYPE_ANY;
         }
         else if (strchr(str, '.')) // float
         {
@@ -377,7 +435,7 @@ static inline BR_PARSER_STEP(parser_number)
         else // int
         {
             context->data[index].i = atol(str);
-            context->types[index] = BR_TYPE_INT;
+            context->types[index] = BR_TYPE_ANY;
         }
 
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
@@ -413,7 +471,6 @@ static inline BR_PARSER_STEP(parser_next) // make sure the next created value is
     if (str[0] == '$') // next key
     {
         BruterList *unused = br_get_unused(context);
-        BruterList *allocs = br_get_allocs(context);
         if (isdigit(str[1])) // if the next key is a number, we will use it as an index
         {
             BruterInt index = atol(str + 1);
@@ -436,11 +493,6 @@ static inline BR_PARSER_STEP(parser_next) // make sure the next created value is
             }
             else 
             {
-                BruterInt found_alloc = bruter_find(allocs, (BruterValue){.i = found}, NULL);
-                if (found_alloc != -1) // if the variable is in allocs, we need to free it
-                {
-                    free(bruter_fast_remove(allocs, found_alloc).p);
-                }
                 if (unused->size > 1) // it exists, we just swap it to the front if there are more than one unused variable
                     bruter_swap(unused, 0, found);
             }
@@ -626,50 +678,67 @@ static inline BruterList *br_new_context(BruterInt initial_size)
     // those could be done automatically when needed, but would print a warning
     // lets push the unused list to the context
     // we do this manually because br_new_var would automatically create the unused list if it does not exist
-    bruter_push(context, bruter_value_p(bruter_init(sizeof(BruterValue), false, false)), "unused", 0);
+    bruter_push(context, bruter_value_p(bruter_init(sizeof(BruterValue), false, false)), "unused",  BR_TYPE_LIST);
 
     // lets push the parser to the context
     BruterList *parser = br_simple_parser();
     BruterInt parser_index = br_new_var(context, bruter_value_p(parser), "parser", BR_TYPE_LIST);
-    
-    // lets push the args to the context
-    BruterInt allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false, false)), "allocs", BR_TYPE_LIST);
 
     // lets push the context into the context itself
-    bruter_push(context, (BruterValue){.p = context}, "context", BR_TYPE_LIST);
+    // note context is not typed as a list, but as a int, because it is a pointer to itself
+    bruter_push(context, (BruterValue){.p = context}, "context", BR_TYPE_NULL);
 
     return context;
 }
 
 static inline void br_free_context(BruterList *context)
 {
-    // lets check if there is a parser variable in the program
-    BruterInt parser_index = bruter_find(context, bruter_value_p(NULL), "parser");
-    if (parser_index != -1) 
+    for (BruterInt i = 0; i < context->size; i++)
     {
-        bruter_free((BruterList*)bruter_get(context, parser_index).p);
-    }
-
-    // lets check if there is a unused variable in the program
-    BruterInt unused_index = bruter_find(context, bruter_value_p(NULL), "unused");
-    if (unused_index != -1) 
-    {
-        bruter_free((BruterList*)bruter_get(context, unused_index).p);
-    }
-
-    // lets check if there is a allocs variable in the program
-    BruterInt allocs_index = bruter_find(context, bruter_value_p(NULL), "allocs");
-    if (allocs_index != -1) 
-    {
-        while (((BruterList*)bruter_get(context, allocs_index).p)->size > 0)
+        switch (context->types[i])
         {
-            free(bruter_pop((BruterList*)bruter_get(context, allocs_index).p).p);
+            case BR_TYPE_BUFFER:
+                free(context->data[i].p);
+                break;
+            case BR_TYPE_LIST:
+                bruter_free((BruterList*)context->data[i].p);
+                break;
+            default:
+                break;
         }
-        bruter_free((BruterList*)bruter_get(context, allocs_index).p);
-        context->data[allocs_index].p = NULL;
     }
-    
     bruter_free(context);
+}
+
+
+// directly evaluate a command from a list, totally unsafe, prefer to use br_eval when possible
+static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, BruterList *args)
+{
+    if (br_arg_get_type(context, args, -1) == BR_TYPE_FUNCTION)
+    {
+        return bruter_call(context, args).i;
+    }
+    else if (br_arg_get_type(context, args, -1) == BR_TYPE_BUFFER)
+    {
+        return br_eval(context, parser, br_arg_get(context, args, -1).s);
+    }
+    else if (br_arg_get_type(context, args, -1) == BR_TYPE_LIST)
+    {
+        BruterList *current_list = (BruterList*)br_arg_get(context, args, -1).p;
+        if (bruter_get_type(context, current_list->data[0].i)  == BR_TYPE_LIST)
+        {
+            current_list = (BruterList*)bruter_get(context, br_evaluate(current_list->data[0].p, parser, current_list)).p;
+        }
+        else if (bruter_get_type(context, current_list->data[0].i) == BR_TYPE_FUNCTION)
+        {
+            return bruter_call(context, current_list).i; // call the function with the args
+        }
+    }
+    else
+    {
+        printf("BR_ERROR: invalid function type %d for command '%s'\n", br_arg_get_type(context, args, -1), br_arg_get_key(context, args, -1));
+        return -1;
+    }
 }
 
 static inline BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
@@ -712,7 +781,9 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
             bruter_free(args);
             continue;
         }
-        result = bruter_call(context, args).i; // .i because we are using contextual call
+
+        result = br_evaluate(context, parser, args);
+
         free(str);
         bruter_free(args);
 
@@ -724,8 +795,6 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
             }
             break;
         }
-        
-        
     }
     bruter_free(splited);
     return result;
@@ -745,22 +814,6 @@ static inline BruterList *br_get_parser(BruterList *context)
         }
     }
     return (BruterList*)context->data[parser_index].p;
-}
-
-static inline BruterList *br_get_allocs(BruterList *context)
-{
-    BruterInt allocs_index = bruter_find(context, bruter_value_p(NULL), "allocs");
-    if (allocs_index == -1)
-    {
-        printf("BR_WARN: allocs not found, creating it\n");
-        allocs_index = br_new_var(context, bruter_value_p(bruter_init(sizeof(BruterValue), false, false)), "allocs", BR_TYPE_LIST);
-        if (allocs_index == -1)
-        {
-            printf("BR_ERROR: failed to create allocs variable\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-    return (BruterList*)context->data[allocs_index].p;
 }
 
 static inline BruterList *br_get_unused(BruterList *context)
