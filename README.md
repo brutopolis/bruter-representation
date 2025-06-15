@@ -39,7 +39,7 @@ BR uses fixed-size types (pointer-sized: **8 bytes** on 64-bit, **4 bytes** on 3
 - `any` - `0`, `'a'`
 - `float` - `0.000000`
 - `string` - `{string}`
-- `list` - `(@ a b 'c' 1 2 {string} 0b00000000 0x00000000 0o00000000)`
+- `list` - `(list a b 'c' 1 2 {string} 0b00000000 0x00000000 0o00000000)`
 
 ## Usage
 

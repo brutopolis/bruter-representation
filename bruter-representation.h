@@ -248,6 +248,23 @@ static inline BruterList* br_str_space_split(const char *str)
                 continue;
             }
         }
+        else if (str[i] == '<')
+        {
+            int j = i + 1, count = 1;
+            while (count != 0 && str[j] != '\0')
+            {
+                if (str[j] == '<' && str[j - 1] != '\\') count++;
+                else if (str[j] == '>' && str[j - 1] != '\\') count--;
+                j++;
+            }
+            if (count == 0) 
+            {
+                char *tmp = br_str_nduplicate(str + i, j - i);
+                bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+                i = j;
+                continue;
+            }
+        }
         else if (isspace((unsigned char)str[i]))
         {
             i++;
@@ -268,18 +285,20 @@ static inline BruterList* br_str_space_split(const char *str)
 static inline BruterList* br_str_split(const char *str, char delim)
 {
     BruterList *splited = bruter_init(sizeof(void*), false, false);
-    int recursion = 0, curly = 0, bracket = 0;
+    int recursion = 0, curly = 0, bracket = 0, angle = 0;  // Added angle bracket counter
     int i = 0, last_i = 0;
     while (str[i] != '\0')
     {
-        if (str[i] == '(' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket) recursion++;
-        else if (str[i] == ')' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket) recursion--;
-        else if (str[i] == '{' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket) curly++;
-        else if (str[i] == '}' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket) curly--;
-        else if (str[i] == '[' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly) bracket++;
-        else if (str[i] == ']' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly) bracket--;
+        if (str[i] == '(' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket && !angle) recursion++;
+        else if (str[i] == ')' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket && !angle) recursion--;
+        else if (str[i] == '{' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket && !angle) curly++;
+        else if (str[i] == '}' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket && !angle) curly--;
+        else if (str[i] == '[' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !angle) bracket++;
+        else if (str[i] == ']' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !angle) bracket--;
+        else if (str[i] == '<' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !bracket) angle++;
+        else if (str[i] == '>' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !bracket) angle--;
 
-        if (str[i] == delim && !recursion && !curly && !bracket)
+        if (str[i] == delim && !recursion && !curly && !bracket && !angle)
         {
             char *tmp = br_str_nduplicate(str + last_i, i - last_i);
             bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
@@ -374,6 +393,19 @@ static inline BR_PARSER_STEP(parser_char)
     if (str[0] == '\'' && str[2] == '\'')
     {
         BruterInt index = br_new_var(context, (BruterValue){.i = str[1]}, NULL, BR_TYPE_ANY);
+        bruter_push(result, (BruterValue){.i = index}, NULL, 0);
+        return true;
+    }
+    return false;
+}
+
+static inline BR_PARSER_STEP(parser_list)
+{
+    if (str[0] == '[') // its a list
+    {
+        str[strlen(str) - 1] = '\0'; // remove the closing parenthesis
+        BruterList *list = br_parse(context, br_get_parser(context), str + 1); // parse the list
+        BruterInt index = br_new_var(context, bruter_value_p(list), NULL, BR_TYPE_LIST);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
     }
@@ -504,7 +536,7 @@ static inline BR_PARSER_STEP(parser_next) // make sure the next created value is
 
 static inline BR_PARSER_STEP(parser_direct_access)
 {
-    if (str[0] == '[') // direct access
+    if (str[0] == '<') // direct access
     {
         char* temp = br_str_nduplicate(str + 1, strlen(str) - 2);
         BruterList* bracket_args = br_parse(context, parser, temp);
@@ -514,7 +546,7 @@ static inline BR_PARSER_STEP(parser_direct_access)
         }
         else 
         {
-            printf("BR_ERROR: empty brackets\n");
+            printf("BR_ERROR: empty direct access\n");
             bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
         }
         bruter_free(bracket_args);
@@ -551,6 +583,7 @@ static inline BruterList* br_simple_parser()
     bruter_push(_parser, (BruterValue){.p = parser_number}, "number", 0);
     bruter_push(_parser, (BruterValue){.p = parser_key}, "key", 0);
     bruter_push(_parser, (BruterValue){.p = parser_next}, "next", 0);
+    bruter_push(_parser, (BruterValue){.p = parser_list}, "list", 0);
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access", 0);
     bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable", 0);
     return _parser;
@@ -709,7 +742,6 @@ static inline void br_free_context(BruterList *context)
     }
     bruter_free(context);
 }
-
 
 // directly evaluate a command from a list, totally unsafe, prefer to use br_eval when possible
 static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, BruterList *args)

@@ -8,6 +8,9 @@
 - if first arg is a string, it will be evaluated;
 - if first arg is a list, it will be evaluated as a compiled function;
 - if first arg is a function, it will be called with the rest of the args;
+- lists can now be created with the syntax [a b c];
+- direct access now uses <index> instead of [index];
+- new parser step: list, which deals with [];
 
 (10/06/2025) - version 1.0.7a
 
