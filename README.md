@@ -8,18 +8,11 @@ Heavily inspired by concepts from **FORTH** and **LISP**, with minor influences 
 
 ## Features
 
-- **No dependencies** - BR is a header-only library, requiring only the **bruter** library (also header-only) and a **C99** compiler with standard libraries
-- **Weakly typed** - No strict type definitions; the user manages types
-- **No garbage collection** - Memory is 100% manual; deallocation happens only at program exit
+- **No garbage collection** - Memory is 100% manual;
 - **Small** - ~900 lines of code
 - **Header-only** - Plug-and-play; just include it in your project
 - **C99 only** - Fully written in **C99**, relying only on **bruter** and standard libraries
-- **Metaprogrammable** - Self-modifiable at runtime; commands and parser steps can be added/removed dynamically
-- **Fast** - Optimized for speed by omitting many standard checks
-- **Unsafe** - Minimal safety checks; assumes the user knows what they're doing
-- **Types** - Reintroduced in **v0.8.1** to combat memory leaks and enable native lists
-- **No scope** - Everything is global; variables/functions can be overridden at any time
-- **No user-defined functions** - Base functions are written in **C**; runtime function creation requires external tools like **libtcc** ([packages](https://github.com/brutopolis/packages))
+- **Metaprogrammable** - Self-modifiable at runtime; commands and parser steps can be added/removed dynamically([packages](https://github.com/brutopolis/packages))
 
 ## Reserved Syntax
 
@@ -77,6 +70,30 @@ repeat 100000 @size
 ls;
 return 0;
 ```
+
+# Functions
+
+bruter-representation has 3 ways of calling commands:
+1. **Directly** - `command;`, those are pre-compiled commands using C; 
+
+    ```
+    print.int 123;
+    print.string {Hello, World!};
+    print.float 3.14;
+    ```
+
+2. **Strings** - `{command}`; those are made made using string and the pre-compiled commands;
+    ```
+    {print.int 123};
+    {print.string {Hello, World!}};
+    {print.float 3.14};
+    ```
+3. **Lists** - `[command]`; those are made using lists and the pre-compiled commands, they are already parsed so are faster than strings, and are easily to change the parameters;
+    ```
+    [print.int 123];
+    [print.string {Hello, World!}];
+    [print.float 3.14];
+    ```
 
 # BRUTER
 

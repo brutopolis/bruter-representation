@@ -369,13 +369,6 @@ static inline void br_delete_var(BruterList *context, BruterInt index)
                 bruter_free((BruterList*)context->data[index].p);
             }
             break;
-        case BR_TYPE_FUNCTION:
-            // free the function if it exists
-            if (context->data[index].p != NULL)
-            {
-                free(context->data[index].p);
-            }
-            break;
         default:
             break;
     }
@@ -573,11 +566,22 @@ static inline BR_PARSER_STEP(parser_variable)
     }
 }
 
+static inline BR_PARSER_STEP(parser_comment)
+{
+    // this is a comment parser, it will ignore everything after //
+    if (str[0] == '/' && str[1] == '/')
+    {
+        // we can just return true, because we are not interested in the result
+        return true;
+    }
+    // if it is not a comment, we return false to continue parsing
+    return false;
+}
+
 // SKETCH
 static inline BruterList* br_simple_parser()
 {
     BruterList *_parser = bruter_init(16, true, false);
-    bruter_push(_parser, (BruterValue){.p = parser_char}, "char", 0);
     bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression", 0);
     bruter_push(_parser, (BruterValue){.p = parser_string}, "string", 0);
     bruter_push(_parser, (BruterValue){.p = parser_number}, "number", 0);
@@ -585,6 +589,8 @@ static inline BruterList* br_simple_parser()
     bruter_push(_parser, (BruterValue){.p = parser_next}, "next", 0);
     bruter_push(_parser, (BruterValue){.p = parser_list}, "list", 0);
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access", 0);
+    bruter_push(_parser, (BruterValue){.p = parser_char}, "char", 0);
+    bruter_push(_parser, (BruterValue){.p = parser_comment}, "comment", 0);
     bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable", 0);
     return _parser;
 }

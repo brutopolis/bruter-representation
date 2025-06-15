@@ -2,9 +2,15 @@ load {std};
 load {list};
 load {io};
 
-# [<return> <88>]       @ctx;
-# [<0> <1>]             @cmd;
+# [<return> <88>] @ctx;
+# [<0> <1>] @cmd;
 
 print.int (list.call ctx cmd);
+
+list.unshift [] @abc print.int;
+list.push abc 99;
+ls;
+print.list abc;
+abc;
 
 return 4;
