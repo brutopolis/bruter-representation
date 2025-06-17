@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stddef.h>
 
-#define BR_VERSION "1.0.8"
+#define BR_VERSION "1.0.8a"
 
 // BRUTER-REPRESENTATION TYPES
 enum BR_TYPES
@@ -673,7 +673,7 @@ static inline BruterInt br_compiled_call(BruterList *context, BruterList *compil
     for (BruterInt i = 0; i < compiled->size; i++)
     {
         BruterList *args = (BruterList*)compiled->data[i].p;
-        result = bruter_call(context, args).i; // .i because we are using contextual call
+        result = bruter_call(context, args);
         if (result != -1)
         {
             break;
@@ -692,7 +692,7 @@ static inline BruterList* br_compile_and_call(BruterList *context, BruterList* p
     {
         str = splited->data[i].s;
         BruterList *args = br_parse(context, parser, str);
-        result = bruter_call(context, args).i; // .i because we are using contextual call
+        result = bruter_call(context, args);
         bruter_push(compiled, (BruterValue){.p = args}, NULL, 0);
         free(str);
     }
@@ -754,7 +754,7 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
 {
     if (br_arg_get_type(context, args, -1) == BR_TYPE_FUNCTION)
     {
-        return bruter_call(context, args).i;
+        return bruter_call(context, args);
     }
     else if (br_arg_get_type(context, args, -1) == BR_TYPE_BUFFER)
     {
@@ -769,7 +769,7 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
         }
         else if (bruter_get_type(context, current_list->data[0].i) == BR_TYPE_FUNCTION)
         {
-            return bruter_call(context, current_list).i; // call the function with the args
+            return bruter_call(context, current_list); // call the function with the args
         }
     }
     else
