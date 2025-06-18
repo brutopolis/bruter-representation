@@ -1,0 +1,9 @@
+load {std};
+load {function};
+load {io};
+
+# (macro {
+    print.int %0;
+}) @m;
+m 0;
+abc;

@@ -8,7 +8,7 @@ ls;
 # (string.concat str0 str1) @c;
 ls;
 
-print.string (string.format {str1: %s\n} str1) @a;
+print.string {str.format function will be rewritten soon} @a;
 print.string a;
 print.string {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} @b;
 print.string c;

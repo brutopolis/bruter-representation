@@ -20,7 +20,8 @@ Heavily inspired by concepts from **FORTH** and **LISP**, with minor influences 
 |--------|--------------------------|
 | `()`   | Expression               |
 | `{}`   | String delimiter         |
-| `[]`   | Direct access            |
+| `[]`   | List delimiter           |
+| `<>`   | Direct access            |
 | `;`    | End-of-command separator |
 | `@`    | Key last operator        |
 | `$`    | Key next operator        |
