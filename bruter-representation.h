@@ -57,7 +57,7 @@ static inline BruterList*   br_simple_parser(); // returns a parser with the bas
 
 static inline BruterList*   br_new_context(BruterInt size);
 static inline BruterInt     br_new_var(BruterList *context, BruterValue value, const char* key, int8_t type);
-static inline void          br_delete_var(BruterList *context, BruterInt index);
+static inline void          br_clear_var(BruterList *context, BruterInt index);
 
 static inline BruterList*   br_parse(BruterList *context, BruterList *parser, const char *cmd);
 static inline BruterInt     br_evaluate(BruterList *context, BruterList *parser, BruterList *args);
@@ -340,7 +340,8 @@ static inline BruterInt br_new_var(BruterList *context, BruterValue value, const
     }
 }
 
-static inline void br_delete_var(BruterList *context, BruterInt index)
+// just clears the variable and key at the specified index
+static inline void br_clear_var(BruterList *context, BruterInt index)
 {
     if (index < 0 || index >= context->size)
     {
@@ -378,9 +379,6 @@ static inline void br_delete_var(BruterList *context, BruterInt index)
     // reset the value and type
     context->data[index] = (BruterValue){.i = -1};
     context->types[index] = BR_TYPE_NULL;
-
-    // push it to the unused list
-    bruter_push(br_get_unused(context), (BruterValue){.i = index}, NULL, 0);
 }
 
 static inline BR_PARSER_STEP(parser_char)
@@ -493,7 +491,8 @@ static inline BR_PARSER_STEP(parser_key)
     return false;
 }
 
-static inline BR_PARSER_STEP(parser_next) // make sure the next created value is under the specified key
+// make sure the next created value is under the specified key, or index
+static inline BR_PARSER_STEP(parser_reuse) 
 {
     if (str[0] == '$') // next key
     {
@@ -507,8 +506,14 @@ static inline BR_PARSER_STEP(parser_next) // make sure the next created value is
                 bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
                 return false;
             }
-            // we will use the value at that index as the next key
-            context->keys[unused->data[index].i] = br_str_duplicate(str + 1);
+            br_clear_var(context, index); // delete the variable at that index, so we can reuse it
+            // we put the key to the context
+            context->keys[index] = br_str_duplicate(str + 1);
+            // we swap the unused variable to the front
+            if (unused->size > 1) // if there are more than one unused variable
+            {
+                bruter_swap(unused, 0, unused->size - 1);
+            }
         }
         else
         {
@@ -521,7 +526,7 @@ static inline BR_PARSER_STEP(parser_next) // make sure the next created value is
             else 
             {
                 if (unused->size > 1) // it exists, we just swap it to the front if there are more than one unused variable
-                    bruter_swap(unused, 0, found);
+                    bruter_unshift(unused, (BruterValue){.i = found}, NULL, 0);
             }
         }
         return true;
@@ -612,6 +617,11 @@ static inline BR_PARSER_STEP(parser_spread)
     return false;
 }
 
+// note: this is not part of simple parser, 
+// is not meant to be used by the user
+// but if you want to, just add it to the parser before baking a function
+// it will be used to parse function arguments, like %0, %1, etc.
+// remove it from the parser after baking a function, so remove its overhead and avoid conflict with other parsers
 static inline BR_PARSER_STEP(parser_function_arg)
 {
     // this is a function argument parser, it will be added to the parser just when baking a function
@@ -621,23 +631,58 @@ static inline BR_PARSER_STEP(parser_function_arg)
         // we use negative index to indicate that this is a function argument
         // while -1 is usually used for errors, we can use it here because baked function SHOULD NOT have any errors
         // so we can safely use -1 as a special value for function arguments
-        bruter_push(result, (BruterValue){.i = -index}, NULL, 0);
+        bruter_push(result, (BruterValue){.i = -index - 1}, NULL, 0);
         return true;
     }
     // if it is not a function argument, we return false to continue parsing
     return false;
 }
 
+static inline BR_PARSER_STEP(parser_function)
+{
+    if (str[0] == '(' && str[1] == '%')
+    {
+        BruterList *parser = br_get_parser(context);
+        bruter_unshift(parser, bruter_value_p(parser_function_arg), "std_function", 0);
+
+        str[strlen(str) - 1] = '\0'; // remove the closing parenthesis
+
+        char* temp = str + 2;
+        while (str[0] == ' ' || str[0] == '\t' || str[0] == '\n' || str[0] == '\r') // remove leading spaces
+        {
+            temp++;
+        }
+
+        BruterInt baked = br_bake_code(context, parser, temp); // bake the function
+
+        context->types[baked] = BR_TYPE_USER_FUNCTION; // set the type to function
+        bruter_shift(parser); // remove the std_function from the parser
+
+        if (baked == -1)
+        {
+            printf("BR_ERROR: failed to bake function from %s\n", temp);
+            bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
+            return false;
+        }
+        else
+        {
+            bruter_push(result, (BruterValue){.i = baked}, NULL, 0);
+            return true;
+        }
+    }
+    return false;
+}
 
 // SKETCH
 static inline BruterList* br_simple_parser()
 {
     BruterList *_parser = bruter_new(16, true, false);
+    bruter_push(_parser, (BruterValue){.p = parser_function}, "function", 0);
     bruter_push(_parser, (BruterValue){.p = parser_expression}, "expression", 0);
     bruter_push(_parser, (BruterValue){.p = parser_string}, "string", 0);
     bruter_push(_parser, (BruterValue){.p = parser_number}, "number", 0);
     bruter_push(_parser, (BruterValue){.p = parser_key}, "key", 0);
-    bruter_push(_parser, (BruterValue){.p = parser_next}, "next", 0);
+    bruter_push(_parser, (BruterValue){.p = parser_reuse}, "next", 0);
     bruter_push(_parser, (BruterValue){.p = parser_list}, "list", 0);
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access", 0);
     bruter_push(_parser, (BruterValue){.p = parser_char}, "char", 0);
@@ -683,22 +728,7 @@ static inline BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     BruterList *splited = br_str_split(cmd, ';');
     BruterList *compiled = bruter_new(sizeof(void*), false, false);
 
-    // remove empty or whitespace-only strings using isspace
-    BruterInt last = splited->size - 1;
-    for (BruterInt i = 0; i < splited->size; i++)
-    {
-        char* str = splited->data[i].s;
-        if (str[0] == '\0' || str[0] == ' ')
-        {
-            free(str);
-            splited->size--;
-            for (BruterInt j = i; j < last; j++)
-            {
-                splited->data[j] = splited->data[j + 1];
-            }
-            i--;
-        }
-    }
+    
     if (splited->size == 0)
     {
         bruter_free(splited);
@@ -710,6 +740,13 @@ static inline BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     {
         str = splited->data[i].s;
         BruterList *args = br_parse(context, parser, str);
+        if (args->size == 0)
+        {
+            printf("BR_WARNING: empty command in baked code\n");
+            bruter_free(args);
+            free(str);
+            continue; // skip empty commands
+        }
         BruterInt args_index = br_new_var(context, bruter_value_p(args), NULL, BR_TYPE_LIST); // store the args in the context
         bruter_push(compiled, (BruterValue){.i = args_index}, NULL, 0);
         free(str);
@@ -853,23 +890,6 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
 static inline BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
 {
     BruterList *splited = br_str_split(cmd, ';');
-
-    // remove empty or whitespace-only strings using isspace
-    BruterInt last = splited->size - 1;
-    for (BruterInt i = 0; i < splited->size; i++)
-    {
-        char* str = splited->data[i].s;
-        if (str[0] == '\0' || str[0] == ' ')
-        {
-            free(str);
-            splited->size--;
-            for (BruterInt j = i; j < last; j++)
-            {
-                splited->data[j] = splited->data[j + 1];
-            }
-            i--;
-        }
-    }
 
     if (splited->size == 0)
     {

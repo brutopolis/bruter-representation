@@ -16,15 +16,17 @@ Heavily inspired by concepts from **FORTH** and **LISP**, with minor influences 
 
 ## Reserved Syntax
 
-| Symbol | Purpose                  |
-|--------|--------------------------|
-| `()`   | Expression               |
-| `{}`   | String delimiter         |
-| `[]`   | List delimiter           |
-| `<>`   | Direct access            |
-| `;`    | End-of-command separator |
-| `@`    | Key last operator        |
-| `$`    | Key next operator        |
+| Symbol | Purpose                               |
+|--------|---------------------------------------|
+| `()`   | Expression                            |
+| `(%)`  | Function delimiter                    |
+| `{}`   | String delimiter                      |
+| `[]`   | List delimiter                        |
+| `<>`   | Direct access                         |
+| `;`    | End-of-command separator              |
+| `@`    | Key operator                          |
+| `$`    | Reuse operator                        |
+| `%`    | Args operator (inside functions)      |
 
 ## Types
 
