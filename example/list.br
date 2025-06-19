@@ -9,7 +9,6 @@ print.int (list.call ctx cmd);
 
 list.unshift [] @abc print.int;
 list.push abc 99;
-ls;
 print.list abc;
 abc;
 

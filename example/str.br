@@ -4,9 +4,7 @@ load {io};
 
 # {abcdefghijklmnopqrstuvwxyz} @str0;
 # {ABCDEFGHIJKLMNOPQRSTUVWXYZ} @str1;
-ls;
 # (string.concat str0 str1) @c;
-ls;
 
 print.string {str.format function will be rewritten soon} @a;
 print.string a;

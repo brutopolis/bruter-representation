@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stddef.h>
 
-#define BR_VERSION "1.0.8a"
+#define BR_VERSION "1.0.9"
 
 // BRUTER-REPRESENTATION TYPES
 enum BR_TYPES
@@ -23,6 +23,7 @@ enum BR_TYPES
     BR_TYPE_LIST               =  3,   // list
     BR_TYPE_FUNCTION           =  4,   // function, same as any but executable
     BR_TYPE_BAKED              =  5,   // a list of lists, its pre-compiled (byte)code
+    BR_TYPE_USER_FUNCTION      =  6,   // user defined function, same as bake, but every negative index is a function argument
 };
 
 #define BR_INIT(name) void init_##name(BruterList *context)
@@ -579,6 +580,55 @@ static inline BR_PARSER_STEP(parser_comment)
     return false;
 }
 
+static inline BR_PARSER_STEP(parser_spread)
+{
+    // this is a spread parser, it will expand the list into the result
+    if (str[0] == '.' && str[1] == '.' && str[2] == '.')
+    {
+        BruterInt found = bruter_find(context, (BruterValue){.p = NULL}, str + 3);
+        if (found == -1)
+        {
+            printf("BR_ERROR: spread variable %s not found\n", str + 3);
+            bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
+            return false;
+        }
+        else if (context->types[found] != BR_TYPE_LIST)
+        {
+            printf("BR_ERROR: spread variable %s is not a list\n", str + 3);
+            bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
+            return false;
+        }
+        // we will expand the list into the result
+        BruterList *spread_list = (BruterList*)context->data[found].p;
+        for (BruterInt i = 0; i < spread_list->size; i++)
+        {
+            // we push each element of the list into the result
+            bruter_push(result, spread_list->data[i], NULL, 0);
+        }
+        // we return true to indicate that we successfully parsed the string, so the parser go to the next word
+        return true;
+    }
+    // if it is not a spread, we return false to continue parsing
+    return false;
+}
+
+static inline BR_PARSER_STEP(parser_function_arg)
+{
+    // this is a function argument parser, it will be added to the parser just when baking a function
+    if (str[0] == '%' && isdigit(str[1]))
+    {
+        BruterInt index = atol(str + 1);
+        // we use negative index to indicate that this is a function argument
+        // while -1 is usually used for errors, we can use it here because baked function SHOULD NOT have any errors
+        // so we can safely use -1 as a special value for function arguments
+        bruter_push(result, (BruterValue){.i = -index}, NULL, 0);
+        return true;
+    }
+    // if it is not a function argument, we return false to continue parsing
+    return false;
+}
+
+
 // SKETCH
 static inline BruterList* br_simple_parser()
 {
@@ -591,6 +641,7 @@ static inline BruterList* br_simple_parser()
     bruter_push(_parser, (BruterValue){.p = parser_list}, "list", 0);
     bruter_push(_parser, (BruterValue){.p = parser_direct_access}, "direct_access", 0);
     bruter_push(_parser, (BruterValue){.p = parser_char}, "char", 0);
+    bruter_push(_parser, (BruterValue){.p = parser_spread}, "spread", 0);
     bruter_push(_parser, (BruterValue){.p = parser_comment}, "comment", 0);
     bruter_push(_parser, (BruterValue){.p = parser_variable}, "variable", 0);
     return _parser;
@@ -659,11 +710,10 @@ static inline BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     {
         str = splited->data[i].s;
         BruterList *args = br_parse(context, parser, str);
-        bruter_push(compiled, (BruterValue){.p = args}, NULL, 0);
-        br_new_var(context, bruter_value_p(args), NULL, BR_TYPE_LIST); // store the args in the context
+        BruterInt args_index = br_new_var(context, bruter_value_p(args), NULL, BR_TYPE_LIST); // store the args in the context
+        bruter_push(compiled, (BruterValue){.i = args_index}, NULL, 0);
         free(str);
     }
-
     bruter_free(splited);
     BruterInt result = br_new_var(context, bruter_value_p(compiled), NULL, BR_TYPE_BAKED);
     return result;
@@ -674,7 +724,7 @@ static inline BruterInt br_baked_call(BruterList *context, BruterList *compiled)
     BruterInt result = -1;
     for (BruterInt i = 0; i < compiled->size; i++)
     {
-        BruterList *args = (BruterList*)compiled->data[i].p;
+        BruterList *args = context->data[compiled->data[i].i].p;
         result = bruter_call(context, args);
         if (result != -1)
         {
@@ -712,6 +762,8 @@ static inline void br_free_context(BruterList *context)
             case BR_TYPE_BUFFER:
                 free(context->data[i].p);
                 break;
+            case BR_TYPE_USER_FUNCTION:
+            case BR_TYPE_BAKED:
             case BR_TYPE_LIST:
                 bruter_free((BruterList*)context->data[i].p);
                 break;
@@ -749,6 +801,47 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
     {
         BruterList *compiled = (BruterList*)br_arg_get(context, args, -1).p;
         return br_baked_call(context, compiled);
+    }
+    else if (br_arg_get_type(context, args, -1) == BR_TYPE_USER_FUNCTION) // a user-defined function
+    {
+        BruterList *compiled = (BruterList*)br_arg_get(context, args, -1).p;
+        BruterList *temp_list = bruter_new(sizeof(void*), false, false);
+        BruterInt result = -1;
+        for (BruterInt i = 0; i < compiled->size; i++)
+        {
+            BruterList *current_command = (BruterList*)bruter_get(context, compiled->data[i].i).p;
+            // we will create a temporary list to store the arguments for the command
+            for (BruterInt j = 0; j < current_command->size; j++)
+            {
+                if (current_command->data[j].i < 0) // if a function argument
+                {
+                    // if index is %0, we will use args->data[1]
+                    BruterInt arg_index = -current_command->data[j].i - 1; // convert to positive index
+                    if (arg_index < 0 || arg_index >= args->size)
+                    {
+                        printf("BR_ERROR: argument index %d out of range in args of size %d\n", arg_index, args->size);
+                        return -1;
+                    }
+                    bruter_push(temp_list, bruter_value_i(br_arg_get_index(args, arg_index)), NULL, 0);
+                }
+                else
+                {
+                    // we can just push the value as it is
+                    bruter_push(temp_list, current_command->data[j], NULL, 0);
+                }
+            }
+            result = bruter_call(context, temp_list);
+            if (result != -1)
+            {
+                // if the result is not -1, we can break the loop
+                break;
+            }
+
+            // clear the temp_list for the next command
+            temp_list->size = 0;
+        }
+        bruter_free(temp_list);
+        return result;
     }
     else
     {

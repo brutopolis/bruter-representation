@@ -1,9 +1,6 @@
 load {std};
-load {function};
 load {io};
 
-# (macro {
-    print.int %0;
-}) @m;
-m 0;
-abc;
+# (function {print.int %1;print.int %2}) @m;
+print.list context;
+m 1 3;
