@@ -36,6 +36,7 @@ BR uses fixed-size types (pointer-sized: **8 bytes** on 64-bit, **4 bytes** on 3
 - `float` - `0.000000`
 - `string` - `{string}`
 - `list` - `(list a b 'c' 1 2 {string} 0b00000000 0x00000000 0o00000000)`
+- `function` - `(% whatever %0 %1 %...)`
 
 ## Usage
 
@@ -55,6 +56,9 @@ command value @key;
 [0] ...;
 [(command ...) variable] ...;
 command $next_value value;
+command ...list;
+...list ...list;
+# (% command %0 %1;command %3 %4 ...);
 ```
 # Syntax
 
@@ -77,7 +81,7 @@ return 0;
 # Functions
 
 bruter-representation has 3 ways of calling commands:
-1. **Directly** - `command;`, those are pre-compiled commands using C; 
+1. **C Functions** - `command;`, those are pre-compiled commands using C, the best way to call a command, actually everything in br relies on those functions, every other method is just a way to call those functions, they are the foundation of a bruter program;
 
     ```
     print.int 123;
@@ -85,7 +89,7 @@ bruter-representation has 3 ways of calling commands:
     print.float 3.14;
     ```
 
-2. **Strings** - `{command}`; those are made made using string and the pre-compiled commands;
+2. **Strings** - `{command}`; those are made made using string and the pre-compiled commands, this is by far, the slowest way to call a command, but is the most flexible, though, it doesnt support arguments;
     ```
     {print.int 123};
     {print.string {Hello, World!}};
@@ -97,6 +101,28 @@ bruter-representation has 3 ways of calling commands:
     [print.string {Hello, World!}];
     [print.float 3.14];
     ```
+
+4. **Baked** - `(bake {command})`; baked commands are just a list of the lists we talked last point, they are just as fast as lists;
+    ```
+    (bake {print.int 123});
+    (bake {print.string {Hello, World!}});
+    (bake {print.float 3.14});
+    ```
+
+5. **Functions** - `(% command %0 %1 ...)`; those are user defined functions, they are created at runtime, and are basically baked commands that support arguments, the args are stored as negative indexes, so `%0` is translated to -1, `%1` to -2, and so on, this is a bit slower than baked and solo lists, but only this and C functions support args;
+    ```
+    (% print.int %0) 123;
+    (% print.string %0) {Hello, World!};
+    (% print.float %0) 3.14;
+    //or;
+    (% print.int %0) @a;
+    (% print.string %0) @b;
+    (% print.float %0) @c;
+    a 123;
+    b {Hello, World!};
+    c 3.14;
+    ```
+    
 
 # BRUTER
 
