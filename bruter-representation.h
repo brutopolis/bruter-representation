@@ -521,12 +521,29 @@ static inline BR_PARSER_STEP(parser_reuse)
             if (found == -1) // if the key is not found, we create a new one
             {
                 BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, str + 1, 0);
-                bruter_unshift(unused, (BruterValue){.i = index}, NULL, 0);
+                bruter_push(unused, (BruterValue){.i = index}, NULL, 0);
             }
             else 
             {
-                if (unused->size > 1) // it exists, we just swap it to the front if there are more than one unused variable
-                    bruter_unshift(unused, (BruterValue){.i = found}, NULL, 0);
+                // found was a index of the CONTEXT, now we need to find it in the unused list
+                found = bruter_find(unused, (BruterValue){.i = found}, NULL);
+    
+                if (found != -1) // it is already in the unused list
+                {
+                    if (unused->size > 1)
+                    {
+                        // lets remove the found variable from the unused list and push it back
+                        bruter_push(unused, bruter_remove(unused, found), NULL, 0);
+                    }
+                    else
+                    {
+                        // nothing to do, the next variable is already the one we want to reuse
+                    }
+                }
+                else // it is not in the unused list
+                {
+                    bruter_push(unused, (BruterValue){.i = found}, NULL, 0);
+                }
             }
         }
         return true;
