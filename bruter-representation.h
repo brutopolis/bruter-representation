@@ -682,7 +682,31 @@ static inline BR_PARSER_STEP(parser_function)
 
         BruterInt baked = br_bake_code(context, parser, temp); // bake the function
 
-        context->types[baked] = BR_TYPE_USER_FUNCTION; // set the type to function
+        bool need_args = false;
+        for (BruterInt i = 0; i < ((BruterList*)bruter_get(context, baked).p)->size; i++)
+        {
+            BruterList *current_list = (BruterList*)context->data[((BruterList*)bruter_get(context, baked).p)->data[i].i].p;
+            for (BruterInt j = 0; j < current_list->size; j++)
+            {
+                if (current_list->data[j].i < 0) // if the argument is a function argument
+                {
+                    need_args = true;
+                    break;
+                }
+            }
+            if (need_args) break; // no need to check further, we already know that
+        }
+
+        // baked is faster than function, but doesnt have arguments, thats why
+        if (need_args)
+        {
+            context->types[baked] = BR_TYPE_USER_FUNCTION; // set the type to function
+        }
+        else
+        {
+            context->types[baked] = BR_TYPE_BAKED; // set the type to baked
+        }
+
         bruter_shift(parser); // remove the std_function from the parser
 
         if (baked == -1)
