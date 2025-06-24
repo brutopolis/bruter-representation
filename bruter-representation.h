@@ -22,7 +22,7 @@ enum BR_TYPES
     BR_TYPE_BUFFER             =  2,   // strings and other allocated buffers, auto-dealocated at the end of the context
     BR_TYPE_LIST               =  3,   // list
     BR_TYPE_FUNCTION           =  4,   // function, same as any but executable
-    BR_TYPE_BAKED              =  5,   // a list of lists, its pre-compiled (byte)code
+    BR_TYPE_BAKED              =  5,   // a list of lists, which are pre-compiled (byte)code
     BR_TYPE_USER_FUNCTION      =  6,   // user defined function, same as bake, but every negative index is a function argument
 };
 
@@ -638,7 +638,7 @@ static inline BR_PARSER_STEP(parser_spread)
 // is not meant to be used by the user
 // but if you want to, just add it to the parser before baking a function
 // it will be used to parse function arguments, like %0, %1, etc.
-// remove it from the parser after baking a function, so remove its overhead and avoid conflict with other parsers
+// remove it from the parser after baking a function, so remove its overhead and avoid conflict with other parser steps
 static inline BR_PARSER_STEP(parser_function_arg)
 {
     // this is a function argument parser, it will be added to the parser just when baking a function
@@ -651,6 +651,16 @@ static inline BR_PARSER_STEP(parser_function_arg)
         bruter_push(result, (BruterValue){.i = -index - 1}, NULL, 0);
         return true;
     }
+    else if (str[0] == '.' && str[1] == '.' && str[2] == '.' && str[3] == '%') // spread arguments
+    {
+        // this is a special if the use wanna spread the arguments in this exact place
+        // we will push a special value to indicate that this is a spread argument
+        // we use INTPTR_MIN to indicate a spread argument
+        bruter_push(result, (BruterValue){.i = INTPTR_MIN}, NULL, 0);
+        // we return true to indicate that we successfully parsed the string, so the parser go to the next word
+        return true;
+    }
+
     // if it is not a function argument, we return false to continue parsing
     return false;
 }
@@ -690,7 +700,9 @@ static inline BR_PARSER_STEP(parser_function)
     return false;
 }
 
-// SKETCH
+// simple parser
+// the order of the steps is important, because the parser will try to match the first step that returns true
+// some are positioned just for performance reasons, but most of them are positioned in a way that they will not conflict with each other
 static inline BruterList* br_simple_parser()
 {
     BruterList *_parser = bruter_new(16, true, false);
@@ -869,14 +881,25 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
             {
                 if (current_command->data[j].i < 0) // if a function argument
                 {
-                    // if index is %0, we will use args->data[1]
-                    BruterInt arg_index = -current_command->data[j].i - 1; // convert to positive index
-                    if (arg_index < 0 || arg_index >= args->size)
+                    if (current_command->data[j].i == INTPTR_MIN) // if it is a spread argument
                     {
-                        printf("BR_ERROR: argument index %d out of range in args of size %d\n", arg_index, args->size);
-                        return -1;
+                        // we will spread the arguments from the args list
+                        for (BruterInt k = 0; k < br_arg_get_count(args); k++)
+                        {
+                            bruter_push(temp_list, bruter_value_i(br_arg_get_index(args, k)), NULL, 0);
+                        }
                     }
-                    bruter_push(temp_list, bruter_value_i(br_arg_get_index(args, arg_index)), NULL, 0);
+                    else
+                    {
+                        // if index is %0, we will use args->data[1]
+                        BruterInt arg_index = -current_command->data[j].i - 1; // convert to positive index
+                        if (arg_index < 0 || arg_index >= args->size)
+                        {
+                            printf("BR_ERROR: argument index %d out of range in args of size %d\n", arg_index, args->size);
+                            return -1;
+                        }
+                        bruter_push(temp_list, bruter_value_i(br_arg_get_index(args, arg_index)), NULL, 0);
+                    }
                 }
                 else
                 {

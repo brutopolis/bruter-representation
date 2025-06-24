@@ -2,7 +2,7 @@
 
 **bruter-representation** is a self-modifiable, metaprogrammable, bruter-based language. It is extremely flexible and fast, designed to be as low-level as possible while remaining easy to use and understand. It runs anywhere that compiles **C99**.
 
-Heavily inspired by concepts from **FORTH** and **LISP**, with minor influences from **bash** and **lua**.
+Heavily inspired by concepts from **bash**, **FORTH** and **LISP**.
 
 *`UNDER HEAVY DEVELOPMENT`*
 
@@ -16,17 +16,19 @@ Heavily inspired by concepts from **FORTH** and **LISP**, with minor influences 
 
 ## Reserved Syntax
 
-| Symbol | Purpose                               |
-|--------|---------------------------------------|
-| `()`   | Expression                            |
-| `(%)`  | Function delimiter                    |
-| `{}`   | String delimiter                      |
-| `[]`   | List delimiter                        |
-| `<>`   | Direct access                         |
-| `;`    | End-of-command separator              |
-| `@`    | Key operator                          |
-| `$`    | Reuse operator                        |
-| `%`    | Args operator (inside functions)      |
+| Symbol | Purpose                                                 |
+|--------|---------------------------------------------------------|
+| `()`   | Expression                                              |
+| `(%)`  | Function delimiter                                      |
+| `{}`   | String delimiter                                        |
+| `[]`   | List delimiter                                          |
+| `<>`   | Direct access                                           |
+| `;`    | End-of-command separator                                |
+| `@`    | Key operator                                            |
+| `$`    | Reuse operator                                          |
+| `%`    | Args operator (inside functions)                        |
+| `...`  | Spread operator, also avaliable in functions using ...% |
+| `//`   | Comment (single word, yes, single word)                 |
 
 ## Types
 
@@ -80,7 +82,8 @@ return 0;
 
 # Functions
 
-bruter-representation has 3 ways of calling commands:
+bruter-representation has 5 ways of calling commands:
+
 1. **C Functions** - `command;`, those are pre-compiled commands using C, the best way to call a command, actually everything in br relies on those functions, every other method is just a way to call those functions, they are the foundation of a bruter program;
 
     ```
