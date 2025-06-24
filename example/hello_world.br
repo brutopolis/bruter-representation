@@ -2,5 +2,4 @@ load {io};
 load {std};
 # {hello world!} @str;
 print.string str;
-ls;
 return 0;

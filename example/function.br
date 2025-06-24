@@ -1,0 +1,9 @@
+load {std};
+load {io};
+
+# (% 
+    print.int %0;
+    print.int %1;
+) @m;
+print.list context;
+m 1 3;

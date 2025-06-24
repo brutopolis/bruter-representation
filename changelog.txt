@@ -1,6 +1,19 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
+(24/06/2025) - version 1.0.9
+
+- minor changes to use bruter 0.8.9;
+- compile is now called bake;
+- new type BR_TYPE_BAKED, which is used to represent baked functions;
+- new parser step: spread, e.g. ...var will unpack var into the current stack;
+- user defined functions are now a thing, they are basically baked functions, which the interpreter replace the negative index with the arguments;
+- br_delete_var renamed to br_clear_var and no more push to the unused list, it just clears the variable;
+- new delimiter: function delimiter (%);
+- new special operator: spread args, ...%;
+- new parser step: function, deals with (%);
+- reuse operator behavior fixed;
+
 (12/06/2025) - version 1.0.8
 
 - new experimental type system;

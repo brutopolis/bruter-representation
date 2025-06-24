@@ -1,0 +1,7 @@
+load {std};
+load {list};
+load {io};
+
+# [5 10] @test;
+print.int ...test;
+return 0;
