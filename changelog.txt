@@ -1,6 +1,10 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
+(26/06/2025) - version 1.1.0
+
+- updated to deal with bruter 0.9.0;
+
 (24/06/2025) - version 1.0.9
 
 - minor changes to use bruter 0.8.9;

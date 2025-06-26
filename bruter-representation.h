@@ -11,7 +11,7 @@
 #include <time.h>
 #include <stddef.h>
 
-#define BR_VERSION "1.0.9"
+#define BR_VERSION "1.1.0"
 
 // BRUTER-REPRESENTATION TYPES
 enum BR_TYPES
@@ -517,7 +517,7 @@ static inline BR_PARSER_STEP(parser_reuse)
         }
         else
         {
-            BruterInt found = bruter_find(context, (BruterValue){.p = NULL}, str + 1);
+            BruterInt found = bruter_find_key(context, str + 1);
             if (found == -1) // if the key is not found, we create a new one
             {
                 BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, str + 1, 0);
@@ -526,7 +526,7 @@ static inline BR_PARSER_STEP(parser_reuse)
             else 
             {
                 // found was a index of the CONTEXT, now we need to find it in the unused list
-                found = bruter_find(unused, (BruterValue){.i = found}, NULL);
+                found = bruter_find(unused, (BruterValue){.i = found});
     
                 if (found != -1) // it is already in the unused list
                 {
@@ -575,7 +575,7 @@ static inline BR_PARSER_STEP(parser_direct_access)
 
 static inline BR_PARSER_STEP(parser_variable)
 {
-    BruterInt index = bruter_find(context, (BruterValue){.p = NULL}, str);
+    BruterInt index = bruter_find_key(context, str);
     
     if (index != -1)
     {
@@ -607,7 +607,7 @@ static inline BR_PARSER_STEP(parser_spread)
     // this is a spread parser, it will expand the list into the result
     if (str[0] == '.' && str[1] == '.' && str[2] == '.')
     {
-        BruterInt found = bruter_find(context, (BruterValue){.p = NULL}, str + 3);
+        BruterInt found = bruter_find_key(context, str + 3);
         if (found == -1)
         {
             printf("BR_ERROR: spread variable %s not found\n", str + 3);
@@ -995,7 +995,7 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
 
 static inline BruterList *br_get_parser(BruterList *context)
 {
-    BruterInt parser_index = bruter_find(context, bruter_value_p(NULL), "parser");
+    BruterInt parser_index = bruter_find_key(context, "parser");
     if (parser_index == -1)
     {
         printf("BR_WARN: parser not found, using simple parser\n");
@@ -1011,7 +1011,7 @@ static inline BruterList *br_get_parser(BruterList *context)
 
 static inline BruterList *br_get_unused(BruterList *context)
 {
-    BruterInt unused_index = bruter_find(context, bruter_value_p(NULL), "unused");
+    BruterInt unused_index = bruter_find_key(context, "unused");
     if (unused_index == -1)
     {
         printf("BR_WARN: unused not found, creating it\n");
