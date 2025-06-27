@@ -1,0 +1,8 @@
+*.so
+*.o
+*.a
+main
+*.exe
+*.appimage
+.vscode
+valgrind-out.txt
