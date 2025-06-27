@@ -4,6 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdarg.h>
+#include <limits.h>
+#include <float.h>
+#include <ctype.h>
+#include <math.h>
+#include <time.h>
+
+#define BR_VERSION "1.1.0"
 
 // we define our own union type, so we can add the step member
 #define BRUTER_MANUAL_UNION 1
@@ -32,16 +40,6 @@ union BruterValue
 
 #include <bruter.h>
 
-#include <stdarg.h>
-#include <limits.h>
-#include <float.h>
-#include <ctype.h>
-#include <math.h>
-#include <time.h>
-#include <stddef.h>
-
-#define BR_VERSION "1.1.0"
-
 // BRUTER-REPRESENTATION TYPES
 enum BR_TYPES
 {// the first 5 ARE the same as BRUTER_TYPES, but with different names
@@ -61,6 +59,7 @@ enum BR_TYPES
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
 #define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str)
 
+// supress unused args warning in parser steps
 #define BR_SUPRESS_UNUSED_WARNING() (void)(context); \
                                   (void)(parser); \
                                   (void)(result); \
@@ -68,11 +67,13 @@ enum BR_TYPES
                                   (void)(current_step); \
                                   (void)(str)
 
-// step type
+// parser step type
 typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str);
 
+// bruter spread argument
 #define BR_SPREAD_ARG INTPTR_MIN + 1
 
+// regular function declarations
 STATIC_INLINE BruterValue   br_arg_get(const BruterList *context, const BruterList *args, BruterInt arg_index);
 STATIC_INLINE BruterInt     br_arg_get_int(const BruterList *context, const BruterList *args, BruterInt arg_index);
 STATIC_INLINE BruterUInt    br_arg_get_uint(const BruterList *context, const BruterList *args, BruterInt arg_index);
