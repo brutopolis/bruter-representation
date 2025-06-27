@@ -50,8 +50,6 @@ static inline char*         br_str_nduplicate(const char *str, BruterUInt size);
 static inline BruterList*   br_str_space_split(const char *str);
 static inline BruterList*   br_str_split(const char *str, char delim);
 static inline char*         br_str_format(const char *format, ...);
-static inline char*         br_str_replace_all(const char *str, const char *old_substr, const char *new_substr);
-static inline char*         br_str_replace_single(const char *str, const char *old_substr, const char *new_substr);
 
 static inline BruterList*   br_simple_parser(); // returns a parser with the basic steps
 
@@ -70,7 +68,7 @@ static inline BruterInt     br_baked_call(BruterList *context, BruterList *compi
 static inline BruterList   *br_get_parser(BruterList *context);
 static inline BruterList   *br_get_unused(BruterList *context);
 
-static inline BruterInt     br_add_function(BruterList *context, const char *name, void *func);
+static inline BruterInt     br_add_function(BruterList *context, const char *name, BruterInt (*func)(BruterList *context, BruterList *args));
 static inline void          br_free_context(BruterList *context);
 
 // functions definitions
@@ -211,7 +209,7 @@ static inline BruterList* br_str_space_split(const char *str)
             if (count == 0) 
             {
                 char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
                 i = j;
                 continue;
             }
@@ -228,7 +226,7 @@ static inline BruterList* br_str_space_split(const char *str)
             if (count == 0) 
             {
                 char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
                 i = j;
                 continue;
             }
@@ -245,7 +243,7 @@ static inline BruterList* br_str_space_split(const char *str)
             if (count == 0) 
             {
                 char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
                 i = j;
                 continue;
             }
@@ -262,7 +260,7 @@ static inline BruterList* br_str_space_split(const char *str)
             if (count == 0) 
             {
                 char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
                 i = j;
                 continue;
             }
@@ -277,7 +275,7 @@ static inline BruterList* br_str_space_split(const char *str)
             int j = i;
             while (str[j] != '\0' && !isspace((unsigned char)str[j])) j++;
             char *tmp = br_str_nduplicate(str + i, j - i);
-            bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+            bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
             i = j;
         }
     }
@@ -303,13 +301,13 @@ static inline BruterList* br_str_split(const char *str, char delim)
         if (str[i] == delim && !recursion && !curly && !bracket && !angle)
         {
             char *tmp = br_str_nduplicate(str + last_i, i - last_i);
-            bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+            bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
             last_i = i + 1;
         }
         else if (str[i + 1] == '\0')
         {
             char *tmp = br_str_nduplicate(str + last_i, i - last_i + 1);
-            bruter_push(splited, (BruterValue){.s = tmp}, NULL, 0);
+            bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
         }
 
         i++;
@@ -398,7 +396,7 @@ static inline BR_PARSER_STEP(parser_list)
     {
         str[strlen(str) - 1] = '\0'; // remove the closing parenthesis
         BruterList *list = br_parse(context, br_get_parser(context), str + 1); // parse the list
-        BruterInt index = br_new_var(context, bruter_value_p(list), NULL, BR_TYPE_LIST);
+        BruterInt index = br_new_var(context, bruter_value_pointer(list), NULL, BR_TYPE_LIST);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
     }
@@ -423,7 +421,7 @@ static inline BR_PARSER_STEP(parser_string)
     if (str[0] == '{')
     {
         char* new_str = br_str_nduplicate(str + 1, strlen(str) - 2);
-        BruterInt index = br_new_var(context, bruter_value_p(new_str), NULL, BR_TYPE_BUFFER);
+        BruterInt index = br_new_var(context, bruter_value_pointer(new_str), NULL, BR_TYPE_BUFFER);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
     }
@@ -434,7 +432,7 @@ static inline BR_PARSER_STEP(parser_number)
 {
     if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
     {
-        BruterInt index = br_new_var(context, bruter_value_p(NULL), NULL, 0);
+        BruterInt index = br_new_var(context, bruter_value_pointer(NULL), NULL, 0);
         
         if (str[0] == '0' && str[1] == 'x') // hex
         {
@@ -670,7 +668,7 @@ static inline BR_PARSER_STEP(parser_function)
     if (str[0] == '(' && str[1] == '%')
     {
         BruterList *parser = br_get_parser(context);
-        bruter_unshift(parser, bruter_value_p(parser_function_arg), "std_function", 0);
+        bruter_unshift(parser, bruter_value_pointer(parser_function_arg), "std_function", 0);
 
         str[strlen(str) - 1] = '\0'; // remove the closing parenthesis
 
@@ -756,7 +754,7 @@ static inline BruterList* br_parse(BruterList *context, BruterList* parser, cons
 
     for (i = 0; i < splited->size; i++)
     {
-        str = splited->data[i].s;
+        str = splited->data[i].p;
 
         for (BruterInt j = 0; j < parser->size; j++)
         {
@@ -791,7 +789,7 @@ static inline BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     char* str = NULL;
     for (BruterInt i = 0; i < splited->size; i++) 
     {
-        str = splited->data[i].s;
+        str = splited->data[i].p;
         BruterList *args = br_parse(context, parser, str);
         if (args->size == 0)
         {
@@ -800,12 +798,12 @@ static inline BruterInt br_bake_code(BruterList *context, BruterList *parser, co
             free(str);
             continue; // skip empty commands
         }
-        BruterInt args_index = br_new_var(context, bruter_value_p(args), NULL, BR_TYPE_LIST); // store the args in the context
+        BruterInt args_index = br_new_var(context, bruter_value_pointer(args), NULL, BR_TYPE_LIST); // store the args in the context
         bruter_push(compiled, (BruterValue){.i = args_index}, NULL, 0);
         free(str);
     }
     bruter_free(splited);
-    BruterInt result = br_new_var(context, bruter_value_p(compiled), NULL, BR_TYPE_BAKED);
+    BruterInt result = br_new_var(context, bruter_value_pointer(compiled), NULL, BR_TYPE_BAKED);
     return result;
 }
 
@@ -830,11 +828,11 @@ static inline BruterList *br_new_context(BruterInt initial_size)
     // those could be done automatically when needed, but would print a warning
     // lets push the unused list to the context
     // we do this manually because br_new_var would automatically create the unused list if it does not exist
-    bruter_push(context, bruter_value_p(bruter_new(sizeof(BruterValue), false, false)), "unused",  BR_TYPE_LIST);
+    bruter_push(context, bruter_value_pointer(bruter_new(sizeof(BruterValue), false, false)), "unused",  BR_TYPE_LIST);
 
     // lets push the parser to the context
     BruterList *parser = br_simple_parser();
-    BruterInt parser_index = br_new_var(context, bruter_value_p(parser), "parser", BR_TYPE_LIST);
+    BruterInt parser_index = br_new_var(context, bruter_value_pointer(parser), "parser", BR_TYPE_LIST);
 
     // lets push the context into the context itself
     // note context is not typed as a list, but as a int, because it is a pointer to itself
@@ -873,7 +871,7 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
     }
     else if (br_arg_get_type(context, args, -1) == BR_TYPE_BUFFER)
     {
-        return br_eval(context, parser, br_arg_get(context, args, -1).s);
+        return br_eval(context, parser, br_arg_get(context, args, -1).p);
     }
     else if (br_arg_get_type(context, args, -1) == BR_TYPE_LIST)
     {
@@ -910,7 +908,7 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                         // we will spread the arguments from the args list
                         for (BruterInt k = 0; k < br_arg_get_count(args); k++)
                         {
-                            bruter_push(temp_list, bruter_value_i(br_arg_get_index(args, k)), NULL, 0);
+                            bruter_push(temp_list, bruter_value_int(br_arg_get_index(args, k)), NULL, 0);
                         }
                     }
                     else
@@ -922,7 +920,7 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                             printf("BR_ERROR: argument index %d out of range in args of size %d\n", arg_index, args->size);
                             return -1;
                         }
-                        bruter_push(temp_list, bruter_value_i(br_arg_get_index(args, arg_index)), NULL, 0);
+                        bruter_push(temp_list, bruter_value_int(br_arg_get_index(args, arg_index)), NULL, 0);
                     }
                 }
                 else
@@ -949,6 +947,7 @@ static inline BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
         printf("BR_ERROR: invalid function type %d for command '%s'\n", br_arg_get_type(context, args, -1), br_arg_get_key(context, args, -1));
         return -1;
     }
+    return -1; // if we reach this point, something went wrong
 }
 
 static inline BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
@@ -965,7 +964,7 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
     char* str = NULL;
     for (BruterInt i = 0; i < splited->size; i++)
     {        
-        str = splited->data[i].s;
+        str = splited->data[i].p;
         BruterList *args = br_parse(context, parser, str);
         if (args->size == 0 || args->data[0].i == -1 || bruter_get(context, args->data[0].i).p == NULL)
         {
@@ -984,7 +983,7 @@ static inline BruterInt br_eval(BruterList *context, BruterList* parser, const c
         {
             for (BruterInt j = i + 1; j < splited->size; j++)
             {
-                free(splited->data[j].s);
+                free(splited->data[j].p);
             }
             break;
         }
@@ -999,7 +998,7 @@ static inline BruterList *br_get_parser(BruterList *context)
     if (parser_index == -1)
     {
         printf("BR_WARN: parser not found, using simple parser\n");
-        parser_index = br_new_var(context, bruter_value_p(br_simple_parser()), "parser", BR_TYPE_LIST);
+        parser_index = br_new_var(context, bruter_value_pointer(br_simple_parser()), "parser", BR_TYPE_LIST);
         if (parser_index == -1)
         {
             printf("BR_ERROR: failed to create parser variable\n");
@@ -1021,9 +1020,15 @@ static inline BruterList *br_get_unused(BruterList *context)
     return (BruterList*)context->data[unused_index].p;
 }
 
-static inline BruterInt br_add_function(BruterList *context, const char *name, void *func)
+static inline BruterInt br_add_function(BruterList *context, const char *name, BruterInt (*func)(BruterList *context, BruterList *args))
 {
-    BruterInt index = br_new_var(context, bruter_value_p(func), name, BR_TYPE_FUNCTION);
+    // this is just needed to be ISO C compliant
+    // ISO C forbids initialization between function pointer and ‘void *’ 
+    void *tmp_ptr;
+    memcpy(&tmp_ptr, &func, sizeof(void*));
+
+    // we will create a new function variable in the context
+    BruterInt index = br_new_var(context, bruter_value_pointer(func), name, BR_TYPE_FUNCTION);
     return index;
 }
 
