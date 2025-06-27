@@ -13,7 +13,6 @@
 - br_get_parser and br_get_unused do not create the parser and unused variables anymore if not found;
 - br_get_parser and br_get_unused will crash the program if the variables are not found, so you need to create them before using them, br_new_context does that for you;
 - tons of optimizations;
-- TODO: use likely and unlikely macros to optimize the code;
 
 (24/06/2025) - version 1.0.9
 

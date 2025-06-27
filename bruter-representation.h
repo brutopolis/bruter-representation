@@ -192,7 +192,7 @@ STATIC_INLINE void br_arg_set(BruterList *context, BruterList *args, BruterInt a
 
 STATIC_INLINE void br_arg_set_key(BruterList *context, BruterList *args, BruterInt arg_index, const char *key)
 {
-    if (args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size)
+    if (unlikely(args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size))
     {
         printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", args->data[arg_index+1].i, context->size);
         exit(EXIT_FAILURE);
@@ -204,7 +204,7 @@ STATIC_INLINE void br_arg_set_key(BruterList *context, BruterList *args, BruterI
 
 STATIC_INLINE void br_arg_set_type(BruterList *context, BruterList *args, BruterInt arg_index, int8_t type)
 {
-    if (args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size)
+    if (unlikely(args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size))
     {
         printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", args->data[arg_index+1].i, context->size);
         exit(EXIT_FAILURE);
@@ -215,7 +215,7 @@ STATIC_INLINE void br_arg_set_type(BruterList *context, BruterList *args, Bruter
 
 STATIC_INLINE void br_arg_set_index(BruterList *args, BruterInt arg_index, BruterInt index)
 {
-    if (index < 0 || index >= args->size)
+    if (unlikely(index < 0 || index >= args->size))
     {
         printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", index, args->size);
         exit(EXIT_FAILURE);
@@ -230,7 +230,7 @@ STATIC_INLINE char* br_str_duplicate(const char *str)
     size_t len = strlen(str);
     char *dup = (char*)malloc(len + 1);
     
-    if (dup == NULL)
+    if (unlikely(dup == NULL))
     {
         printf("BR_ERROR: failed to allocate memory for string duplication\n");
         exit(EXIT_FAILURE);
@@ -244,7 +244,7 @@ STATIC_INLINE char* br_str_nduplicate(const char *str, size_t size)
 {
     char *dup = (char*)malloc(size + 1);
     
-    if (dup == NULL)
+    if (unlikely(dup == NULL))
     {
         printf("BR_ERROR: failed to allocate memory for string duplication\n");
         exit(EXIT_FAILURE);
@@ -266,7 +266,7 @@ STATIC_INLINE char* br_str_format(const char *format, ...)
     size = (size_t)vsnprintf(NULL, 0, format, args);
     va_end(args);
     str = (char*)malloc(size + 1);
-    if (str == NULL)
+    if (unlikely(str == NULL))
     {
         printf("BR_ERROR: failed to allocate memory for formatted string\n");
         exit(EXIT_FAILURE);
@@ -927,7 +927,7 @@ STATIC_INLINE BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     BruterList *compiled = bruter_new(sizeof(void*), false, false);
     BruterInt result = -1;
     
-    if (splited->size == 0)
+    if (unlikely(splited->size == 0))
     {
         bruter_free(splited);
         return -1;
@@ -937,7 +937,7 @@ STATIC_INLINE BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     {
         BruterList *args = br_parse(context, parser, str = (char*)splited->data[i].p);
         BruterInt args_index = -1;
-        if (args->size == 0)
+        if (unlikely(args->size == 0))
         {
             printf("BR_WARNING: empty command in baked code\n");
             bruter_free(args);
@@ -975,7 +975,7 @@ STATIC_INLINE BruterList *br_new_context(BruterInt initial_size)
     // those could be done automatically when needed, but would print a warning
     // lets push the unused list to the context
     // we do this manually because br_new_var would automatically create the unused list if it does not exist
-    bruter_push_pointer(context, (void*)bruter_new(sizeof(BruterValue), false, false), "unused");
+    bruter_push(context, (BruterValue){.p=(void*)bruter_new(sizeof(BruterValue), false, false)}, "unused", BR_TYPE_LIST);
 
     // lets push the parser to the context
     parser = br_simple_parser();
@@ -1056,7 +1056,7 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                     {
                         // if index is %0, we will use args->data[1]
                         BruterInt arg_index = -current_command->data[j].i - 1; // convert to positive index
-                        if (arg_index < 0 || arg_index >= args->size)
+                        if (unlikely(arg_index < 0 || arg_index >= args->size))
                         {
                             printf("BR_ERROR: argument index %" PRIdPTR " out of range in args of size %" PRIdPTR "\n", arg_index, args->size);
                             return -1;
@@ -1097,7 +1097,7 @@ STATIC_INLINE BruterInt br_eval(BruterList *context, BruterList* parser, const c
     char* str = NULL;
     BruterInt result = -1;
 
-    if (splited->size == 0)
+    if (unlikely(splited->size == 0))
     {
         bruter_free(splited);
         return -1;
@@ -1106,7 +1106,7 @@ STATIC_INLINE BruterInt br_eval(BruterList *context, BruterList* parser, const c
     for (BruterInt i = 0; i < splited->size; i++)
     {
         BruterList *args = br_parse(context, parser, str = (char*)splited->data[i].p);
-        if (args->size == 0 || args->data[0].i == -1 || bruter_get_pointer(context, args->data[0].i) == NULL)
+        if (unlikely(args->size == 0 || args->data[0].i == -1 || bruter_get_pointer(context, args->data[0].i) == NULL))
         {
             //printf("BR_ERROR: empty command or invalid function\n");
             free(str);
@@ -1135,7 +1135,7 @@ STATIC_INLINE BruterInt br_eval(BruterList *context, BruterList* parser, const c
 STATIC_INLINE BruterList *br_get_parser(const BruterList *context)
 {
     BruterInt parser_index = bruter_find_key(context, "parser");
-    if (parser_index == -1)
+    if (unlikely(parser_index == -1))
     {
         printf("BR_ERROR: failed to create parser variable\n");
         exit(EXIT_FAILURE);
@@ -1146,7 +1146,7 @@ STATIC_INLINE BruterList *br_get_parser(const BruterList *context)
 STATIC_INLINE BruterList *br_get_unused(const BruterList *context)
 {
     BruterInt unused_index = bruter_find_key(context, "unused");
-    if (unused_index == -1)
+    if (unlikely(unused_index == -1))
     {
         printf("BR_ERROR: failed to create unused variable\n");
         exit(EXIT_FAILURE);
