@@ -11,7 +11,7 @@
 #include <math.h>
 #include <time.h>
 
-#define BR_VERSION "1.1.0"
+#define BR_VERSION "1.1.0a"
 
 // we define our own union type, so we can add the step member
 #define BRUTER_MANUAL_UNION 1
@@ -134,6 +134,8 @@ STATIC_INLINE BR_PARSER_STEP(parser_direct_access);
 // functions definitions
 // functions definitions
 // functions definitions
+
+#ifndef BRUTER_AS_HEADER // you can define this to not include the implementations
 
 // arg stuff
 BRUTER_ALLOW_AGGREGATE_RETURN()
@@ -1176,8 +1178,10 @@ STATIC_INLINE BruterInt br_add_function(BruterList *context, const char *name, B
     return index;
 }
 
+#endif // BRUTER_AS_HEADER
+
 // just to avoid unused warnings
-#if defined(BRUTER_AS_LIB)
+#if defined(BRUTER_AS_SOURCE)
     #if defined(BR_H)
         #if defined(BR_VERSION)
             #if defined(BR_INIT)
