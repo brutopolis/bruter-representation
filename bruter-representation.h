@@ -42,17 +42,15 @@ union BruterValue
 
 // BRUTER-REPRESENTATION TYPES
 enum BR_TYPES
-{// the first 5 ARE the same as BRUTER_TYPES, but with different names
- // the first 5 MUST be the same as BRUTER_TYPES, so we can use auto-typing here too;
+{
     BR_TYPE_NULL               = -1,   // null
     BR_TYPE_ANY                =  0,   // integer or pointer
-    BR_TYPE_UNSIGNED           =  1,   // same as any but unsigned
-    BR_TYPE_FLOAT              =  2,   // float
-    BR_TYPE_BUFFER             =  3,   // strings and other allocated buffers, auto-dealocated at the end of the context
-    BR_TYPE_FUNCTION           =  4,   // function, same as any but executable
-    BR_TYPE_LIST               =  5,   // list
-    BR_TYPE_BAKED              =  6,   // a list of lists, which are pre-compiled (byte)code
-    BR_TYPE_USER_FUNCTION      =  7,   // user defined function, same as bake, but every negative index is a function argument
+    BR_TYPE_FLOAT              =  1,   // float
+    BR_TYPE_BUFFER             =  2,   // strings and other allocated buffers, auto-dealocated at the end of the context
+    BR_TYPE_FUNCTION           =  3,   // function, same as any but executable
+    BR_TYPE_LIST               =  4,   // list
+    BR_TYPE_BAKED              =  5,   // a list of lists, which are pre-compiled (byte)code
+    BR_TYPE_USER_FUNCTION      =  6,   // user defined function, same as bake, but every negative index is a function argument
 };
 
 #define BR_INIT(name) void init_##name(BruterList *context)
@@ -975,15 +973,15 @@ STATIC_INLINE BruterList *br_new_context(BruterInt initial_size)
     // those could be done automatically when needed, but would print a warning
     // lets push the unused list to the context
     // we do this manually because br_new_var would automatically create the unused list if it does not exist
-    bruter_push(context, (BruterValue){.p=(void*)bruter_new(sizeof(BruterValue), false, false)}, "unused", BR_TYPE_LIST);
+    bruter_push_pointer(context, (void*)bruter_new(sizeof(BruterValue), false, false), "unused", BR_TYPE_LIST);
 
     // lets push the parser to the context
     parser = br_simple_parser();
-    br_new_var(context, (BruterValue){.p = parser}, "parser", BR_TYPE_LIST);
+    bruter_push_pointer(context, (void*)parser, "parser", BR_TYPE_LIST);
 
     // lets push the context into the context itself
     // note context is not typed as a list, but as a int, because it is a pointer to itself
-    bruter_push(context, (BruterValue){.p = context}, "context", BR_TYPE_NULL);
+    bruter_push_pointer(context, (void*)context, "context", BR_TYPE_NULL);
 
     return context;
 }
@@ -1049,7 +1047,7 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                         // UInt is used to avoid signed integer overflow
                         for (BruterInt k = 0; k < (BruterInt)br_arg_get_count(args); k++)
                         {
-                            bruter_push_int(temp_list, br_arg_get_index(args, (BruterInt)k), NULL);
+                            bruter_push_int(temp_list, br_arg_get_index(args, (BruterInt)k), NULL, BR_TYPE_ANY);
                         }
                     }
                     else
@@ -1061,7 +1059,7 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                             printf("BR_ERROR: argument index %" PRIdPTR " out of range in args of size %" PRIdPTR "\n", arg_index, args->size);
                             return -1;
                         }
-                        bruter_push_int(temp_list, br_arg_get_index(args, arg_index), NULL);
+                        bruter_push_int(temp_list, br_arg_get_index(args, arg_index), NULL, BR_TYPE_ANY);
                     }
                 }
                 else

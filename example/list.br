@@ -1,6 +1,7 @@
 load {std};
 load {list};
 load {io};
+load {type};
 
 # [<return> <88>] @ctx;
 # [<0> <1>] @cmd;
@@ -10,6 +11,8 @@ print.int (list.call ctx cmd);
 list.unshift [] @abc print.int;
 list.push abc 99;
 print.list abc;
+//we_need_to_type_this_list_as_function_to_avoid_error
+type.set abc 3;
 abc;
 
 return 4;
