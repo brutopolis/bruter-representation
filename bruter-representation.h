@@ -11,7 +11,7 @@
 #include <math.h>
 #include <time.h>
 
-#define BR_VERSION "1.1.0a"
+#define BR_VERSION "1.1.1"
 
 // we define our own union type, so we can add the step member
 #define BRUTER_MANUAL_UNION 1
@@ -25,14 +25,14 @@ union BruterValue
         double f;
         int64_t (*fn)(struct BruterList *context, struct BruterList *args);
         // step function, used to parse the input
-        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, int64_t current_word, int64_t current_step, char *str);
+        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int64_t current_word, int64_t current_step, char *str);
     #else
         int32_t i;
         uint32_t u;
         float f;
         int32_t (*fn)(struct BruterList *context, struct BruterList *args);
         // step function, used to parse the input
-        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, int32_t current_word, int32_t current_step, char *str);
+        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int32_t current_word, int32_t current_step, char *str);
     #endif
 
     void* p;
@@ -55,7 +55,7 @@ enum BR_TYPES
 
 #define BR_INIT(name) void init_##name(BruterList *context)
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
-#define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str)
+#define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt current_word, BruterInt current_step, char *str)
 
 // supress unused args warning in parser steps
 #define BR_SUPRESS_UNUSED_WARNING() (void)(context); \
@@ -66,7 +66,7 @@ enum BR_TYPES
                                   (void)(str)
 
 // parser step type
-typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterInt current_word, BruterInt current_step, char *str);
+typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt current_word, BruterInt current_step, char *str);
 
 // bruter spread argument
 #define BR_SPREAD_ARG INTPTR_MIN + 1
@@ -586,7 +586,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_number)
             context->types[index] = BR_TYPE_ANY;
         }
 
-        bruter_push(result, (BruterValue){.i = index}, NULL, 0);
+        bruter_push_int(result, index, NULL, 0);
         return true;
     }
     return false;
@@ -598,15 +598,52 @@ STATIC_INLINE BR_PARSER_STEP(parser_key)
     BR_SUPRESS_UNUSED_WARNING();
     if (str[0] == '@') // key
     {
-        if (result->size <= 0)
+        if (unlikely(result->size <= 0))
         {
+            printf("result size: %" PRIdPTR ", but we need at least 1 element\n", result->size);
             printf("BR_ERROR: %s has no previous value\n", str);
         }
-        else if (result->data[result->size - 1].i == -1)
+        else if (unlikely(result->data[result->size - 1].i == -1))
         {
             printf("BR_ERROR: %s previous value is not a variable\n", str);
         }
-        else 
+        else if (str[1] == '@') // type
+        {
+            if (unlikely(str[2] == '\0')) // @@, not valid
+            {
+                printf("BR_ERROR: @@ alone is not valid\n");
+            }
+            else // whatever @@type, 100% valid
+            {
+                if (isdigit(str[2])) // @@type, where type is a number, faster
+                {
+                    int8_t type = atoi(str + 2);
+                    context->types[result->data[result->size - 1].i] = type;
+                    // we dont need to push anything to the result, just set the type
+                }
+                else
+                {
+                    // whatever @@type, where type is a string
+                    BruterInt found = bruter_find_key(context, str + 2);
+
+                    if (unlikely(found == -1)) // not found
+                    {
+                        printf("BR_ERROR: type %s not found\n", str + 2);
+                    }
+                    else // found, we set the type
+                    {
+                        context->types[result->data[result->size - 1].i] = context->data[found].i;
+                        // we dont need to push anything to the result, just set the type
+                    }
+                }
+            }
+        }
+        else if (str[1] ==  '\0') // invalid
+        {
+            printf("BR_ERROR: @ alone is not valid\n");
+            bruter_push_int(result, -1, NULL, 0);
+        }
+        else // default key behavior
         {
             context->keys[result->data[result->size - 1].i] = br_str_duplicate(str + 1);
             // thats it, we dont need to push anything to the result
@@ -624,7 +661,9 @@ STATIC_INLINE BR_PARSER_STEP(parser_reuse)
     if (str[0] == '$') // next key
     {
         BruterList *unused = br_get_unused(context);
-        if (isdigit(str[1])) // if the next key is a number, we will use it as an index
+		
+        // if the next key is a number, we will use it as an index
+		if (isdigit(str[1]))
         {
             BruterInt index = atol(str + 1);
             if (index < 0 || index >= unused->size)
@@ -633,19 +672,37 @@ STATIC_INLINE BR_PARSER_STEP(parser_reuse)
                 bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
                 return false;
             }
-            br_clear_var(context, index); // delete the variable at that index, so we can reuse it
+			
+			// delete the variable at that index, so we can reuse it
+            br_clear_var(context, index);
+			
             // we put the key to the context
             context->keys[index] = br_str_duplicate(str + 1);
-            // we swap the unused variable to the front
-            if (unused->size > 1) // if there are more than one unused variable
-            {
-                bruter_swap(unused, 0, unused->size - 1);
-            }
         }
+		else if (str[1] == '$') // force not to reuse a key, but to create a new one
+		{
+            // we'll need the unused list
+            BruterList *unused = br_get_unused(context);
+
+            char* new_name = str + 2;
+            if (str[2] == '\0') // $$ whatever
+            {
+                // lets push a empty unamed integer
+                bruter_push_int(context, 0, NULL, 0);
+                bruter_push_int(unused, context->size - 1, NULL, 0);
+            }
+            else // $$name whatever
+            {
+                // lets push a empty named integer
+                bruter_push_int(context, 0, new_name, 0);
+                bruter_push_int(unused, context->size - 1, NULL, 0);
+            }
+		}
         else
         {
             BruterInt found = bruter_find_key(context, str + 1);
-            if (found == -1) // if the key is not found, we create a new one
+            // if the key is not found, we create a new one
+            if (found == -1)
             {
                 BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, str + 1, 0);
                 bruter_push(unused, (BruterValue){.i = index}, NULL, 0);
@@ -682,20 +739,22 @@ STATIC_INLINE BR_PARSER_STEP(parser_direct_access)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '<') // direct access
+    // direct access
+    if (str[0] == '<')
     {
         char* temp = br_str_nduplicate(str + 1, strlen(str) - 2);
         BruterList* bracket_args = br_parse(context, parser, temp);
         if (bracket_args->size > 0)
         {
             BruterInt index = bruter_pop_int(bracket_args);
+
             // raw way to avoid aggregate return from bruter_get;
-            bruter_push(result, context->data[index], context->keys[index], context->types[index]);
+            bruter_push(result, context->data[index], NULL, 0);
         }
         else 
         {
             printf("BR_ERROR: empty direct access\n");
-            bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
+            bruter_push_int(result, -1, NULL, 0);
         }
         bruter_free(bracket_args);
         free(temp);
@@ -707,6 +766,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_direct_access)
 STATIC_INLINE BR_PARSER_STEP(parser_variable)
 {
     BruterInt index = bruter_find_key(context, str);
+    
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
     if (index != -1)
@@ -726,9 +786,20 @@ STATIC_INLINE BR_PARSER_STEP(parser_comment)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    // this is a comment parser, it will ignore everything after //
+
+    // this is a comment parser, it will ignore the next word, doesnt matter what it is
     if (str[0] == '/' && str[1] == '/')
     {
+        // lets verify if we have a next word
+        if (current_word + 1 < splited_command->size)
+        {
+            // lets remove the next word
+            void* removed_str = bruter_remove_pointer(splited_command, current_word + 1);
+
+            // and free it
+            free(removed_str);
+        }
+
         // we can just return true, because we are not interested in the result
         return true;
     }
@@ -740,6 +811,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_spread)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
+
     // this is a spread parser, it will expand the list into the result
     if (str[0] == '.' && str[1] == '.' && str[2] == '.')
     {
@@ -757,6 +829,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_spread)
             bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
             return false;
         }
+
         // we will expand the list into the result
         spread_list = (BruterList*)context->data[found].p;
         for (BruterInt i = 0; i < spread_list->size; i++)
@@ -764,6 +837,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_spread)
             // we push each element of the list into the result
             bruter_push(result, spread_list->data[i], NULL, 0);
         }
+
         // we return true to indicate that we successfully parsed the string, so the parser go to the next word
         return true;
     }
@@ -780,14 +854,16 @@ STATIC_INLINE BR_PARSER_STEP(parser_function_arg)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
+
     // this is a function argument parser, it will be added to the parser just when baking a function
     if (str[0] == '%' && isdigit(str[1]))
     {
         BruterInt index = atol(str + 1);
+
         // we use negative index to indicate that this is a function argument
         // while -1 is usually used for errors, we can use it here because baked function SHOULD NOT have any errors
         // so we can safely use -1 as a special value for function arguments
-        bruter_push(result, (BruterValue){.i = -index - 1}, NULL, 0);
+        bruter_push_int(result, -index - 1, NULL, 0);
         return true;
     }
     else if (str[0] == '.' && str[1] == '.' && str[2] == '.' && str[3] == '%') // spread arguments
@@ -795,7 +871,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_function_arg)
         // this is a special if the use wanna spread the arguments in this exact place
         // we will push a special value to indicate that this is a spread argument
         // we use BR_SPREAD_ARG to indicate a spread argument
-        bruter_push(result, (BruterValue){.i = BR_SPREAD_ARG}, NULL, 0);
+        bruter_push_int(result, BR_SPREAD_ARG, NULL, 0);
         // we return true to indicate that we successfully parsed the string, so the parser go to the next word
         return true;
     }
@@ -915,7 +991,7 @@ STATIC_INLINE BruterList* br_parse(BruterList *context, BruterList* parser, cons
         for (BruterInt j = 0; j < parser->size; j++)
         {
             ParserStep step = (ParserStep)parser->data[j].step;
-            if (step(context, parser, result, i, j, str))
+            if (step(context, parser, result, splited, i, j, str))
             {
                 // if the step returns true, means it was successful
                 // we can break the loop and continue to the next string

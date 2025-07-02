@@ -1,0 +1,10 @@
+load {std};
+load {io};
+load {list};
+
+// {first we create a bunch of variables};
+# 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+# {teste} @teste;
+print.list context;
+print {teste is at index:};
+print.index teste;

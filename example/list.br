@@ -11,8 +11,7 @@ print.int (list.call ctx cmd);
 list.unshift [] @abc print.int;
 list.push abc 99;
 print.list abc;
-//we_need_to_type_this_list_as_function_to_avoid_error
-type.set abc 3;
-abc;
+// {we need to type this list as baked to avoid error};
+[abc] @abc2 @@5;
 
 return 4;

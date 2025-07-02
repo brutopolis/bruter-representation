@@ -1,10 +1,26 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
-(28/06/2025) - version 1.1.0a
+(02/07/2025) - version 1.1.1
 
+- this is the actual major update like bruter 0.9.0;
 - new macro BRUTER_AS_SOURCE, it will make bruter.h act like a source file, like bruter-representation.c;
 - new macro BRUTER_AS_HEADER, it will disable all implementation in bruter-representation.h, only declaration and macros will be left;
+- now the comment step completely ignores the next, it also still working as "word commenter" as well;
+- the reuse step can now force creating a new var instead, with $$ prefix: "$$name whatever" or "$$ whatever";
+- the key step now can set type too using syntax: whatever @@type;
+- some bugs fixed;
+
+TODO: add @@@value to set the contents of the last value, sounds useless, but can be very useful actually;
+TODO: create getters, like &name &&type &&&, maybe @ be a alternative to but must not conflict with set operator;
+TODO: implement prototypes(maybe as lib);
+
+very good or very bad idea:
+using 
+  name! type!! value!!! 
+and 
+  name? type?? value???
+for getters and setters instead of @ and & 
 
 (27/06/2025) - version 1.1.0
 
