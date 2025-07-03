@@ -18,24 +18,18 @@
 struct BruterList;
 union BruterValue
 {
-    // primitive obligatory types
-    #if INTPTR_MAX == INT64_MAX
-        int64_t i;
-        uint64_t u;
-        double f;
-        int64_t (*fn)(struct BruterList *context, struct BruterList *args);
-        // step function, used to parse the input
-        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int64_t word_index, int64_t step_index);
-    #else
-        int32_t i;
-        uint32_t u;
-        float f;
-        int32_t (*fn)(struct BruterList *context, struct BruterList *args);
-        // step function, used to parse the input
-        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int32_t word_index, int32_t step_index);
-    #endif
-
     void* p;
+    intptr_t i;
+    uintptr_t u;
+    intptr_t (*fn)(struct BruterList *context, struct BruterList *args);
+    bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, intptr_t word_index, intptr_t step_index);
+    intptr_t (*eval_step)(struct BruterList *context, struct BruterList *parser, struct BruterList *args);
+
+    #if INTPTR_MAX == INT64_MAX
+        double f;
+    #else
+        float f;
+    #endif
 };
 
 #include <bruter.h>
@@ -56,6 +50,7 @@ enum BR_TYPES
 #define BR_INIT(name) void init_##name(BruterList *context)
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
 #define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt word_index, BruterInt step_index)
+#define BR_EVALUATOR_STEP(name) BruterInt name(BruterList *context, BruterList *parser, BruterList *args)
 
 // supress unused args warning in parser steps
 #define BR_SUPRESS_UNUSED_WARNING() (void)(context); \
@@ -66,9 +61,10 @@ enum BR_TYPES
 
 // parser step type
 typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt word_index, BruterInt step_index);
+typedef BruterInt (*EvaluatorStep)(BruterList *context, BruterList *parser, BruterList *args);
 
 // bruter spread argument
-#define BR_SPREAD_ARG INTPTR_MIN + 1
+#define BR_SPECIAL_RETURN INTPTR_MIN
 
 // regular function declarations
 STATIC_INLINE BruterValue   br_arg_get(const BruterList *context, const BruterList *args, BruterInt arg_index);
@@ -100,6 +96,7 @@ STATIC_INLINE BruterList*   br_str_split(const char *str, char delim);
 
 // returns a parser with the basic steps
 STATIC_INLINE BruterList*   br_simple_parser(void); 
+STATIC_INLINE BruterList*   br_simple_evaluator(void);
 
 STATIC_INLINE BruterList*   br_new_context(BruterInt initial_size);
 STATIC_INLINE BruterInt     br_new_var(BruterList *context, BruterValue value, const char* key, int8_t type);
@@ -115,6 +112,7 @@ STATIC_INLINE BruterInt     br_baked_call(BruterList *context, BruterList *compi
 
 STATIC_INLINE BruterList*   br_get_parser(const BruterList *context);
 STATIC_INLINE BruterList*   br_get_unused(const BruterList *context);
+STATIC_INLINE BruterList*   br_get_evaluator(const BruterList *context);
 
 STATIC_INLINE BruterInt     br_add_function(BruterList *context, const char *name, BruterInt (*func)(BruterList *context, BruterList *args));
 STATIC_INLINE void          br_free_context(BruterList *context);
@@ -133,6 +131,13 @@ STATIC_INLINE BR_PARSER_STEP(parser_expression);
 STATIC_INLINE BR_PARSER_STEP(parser_key);
 STATIC_INLINE BR_PARSER_STEP(parser_reuse);
 STATIC_INLINE BR_PARSER_STEP(parser_direct_access);
+
+// basic evaluation steps declarations
+STATIC_INLINE BR_EVALUATOR_STEP(eval_step_function);
+STATIC_INLINE BR_EVALUATOR_STEP(eval_step_buffer);
+STATIC_INLINE BR_EVALUATOR_STEP(eval_step_list);
+STATIC_INLINE BR_EVALUATOR_STEP(eval_step_baked);
+STATIC_INLINE BR_EVALUATOR_STEP(eval_step_user_function);
 
 // functions definitions
 // functions definitions
@@ -998,8 +1003,8 @@ STATIC_INLINE BR_PARSER_STEP(parser_function_arg)
     {
         // this is a special if the use wanna spread the arguments in this exact place
         // we will push a special value to indicate that this is a spread argument
-        // we use BR_SPREAD_ARG to indicate a spread argument
-        bruter_push_int(result, BR_SPREAD_ARG, NULL, 0);
+        // we use BR_SPECIAL_RETURN to indicate a spread argument
+        bruter_push_int(result, BR_SPECIAL_RETURN, NULL, 0);
         // we return true to indicate that we successfully parsed the string, so the parser go to the next word
         return true;
     }
@@ -1193,7 +1198,11 @@ STATIC_INLINE BruterInt br_baked_call(BruterList *context, BruterList *compiled)
 STATIC_INLINE BruterList *br_new_context(BruterInt initial_size)
 {
     BruterList *parser;
-    BruterList* context = bruter_new(initial_size, true, true); // starts with capacity of 16 vars, to avoid reallocations, it will grow as needed
+    BruterList *evaluator;
+
+    // it will grow as needed
+    BruterList* context = bruter_new(initial_size, true, true);
+
     // those could be done automatically when needed, but would print a warning
     // lets push the unused list to the context
     // we do this manually because br_new_var would automatically create the unused list if it does not exist
@@ -1202,6 +1211,11 @@ STATIC_INLINE BruterList *br_new_context(BruterInt initial_size)
     // lets push the parser to the context
     parser = br_simple_parser();
     bruter_push_pointer(context, (void*)parser, "parser", BR_TYPE_LIST);
+
+    // lets push the evaluator to the context
+    evaluator = br_simple_evaluator();
+    bruter_push_pointer(context, (void*)evaluator, "evaluator", BR_TYPE_LIST);
+    // we will use the evaluator to evaluate the commands
 
     // lets push the context into the context itself
     // note context is not typed as a list, but as a int, because it is a pointer to itself
@@ -1231,31 +1245,98 @@ STATIC_INLINE void br_free_context(BruterList *context)
     bruter_free(context);
 }
 
-// directly evaluate a command from a list, totally unsafe, prefer to use br_eval when possible
-STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, BruterList *args)
+// evatuation steps
+BR_EVALUATOR_STEP(eval_step_function)
 {
     if (br_arg_get_type(context, args, -1) == BR_TYPE_FUNCTION)
     {
-        return bruter_call(context, args);
+        BruterInt result = bruter_call(context, args);
+        if (result >= 0)
+        {
+            // if the result is valid, we return it
+            return result;
+        }
+
+        // special return to interrupt the evaluation, because we already found a step that can handle this type
+        return BR_SPECIAL_RETURN; 
     }
-    else if (br_arg_get_type(context, args, -1) == BR_TYPE_BUFFER)
+    
+    // means is not the type we are looking for;
+    return -1;
+};
+
+BR_EVALUATOR_STEP(eval_step_buffer)
+{
+    if (br_arg_get_type(context, args, -1) == BR_TYPE_BUFFER)
     {
-        return br_eval(context, parser, (char*)br_arg_get_pointer(context, args, -1));
+        // we will evaluate the buffer as a command
+        BruterInt result = br_eval(context, parser, (char*)br_arg_get_pointer(context, args, -1));
+        if (result >= 0)
+        {
+            // if the result is valid, we return it
+            return result;
+        }
+
+        // special return to interrupt the evaluation, because we already found a step that can handle this type
+        return BR_SPECIAL_RETURN;
     }
-    else if (br_arg_get_type(context, args, -1) == BR_TYPE_LIST)
+
+    // means is not the type we are looking for;
+    return -1;
+};
+
+BR_EVALUATOR_STEP(eval_step_list)
+{
+    if (br_arg_get_type(context, args, -1) == BR_TYPE_LIST)
     {
-        printf("BR_ERROR: you cannot call a regular list as a function\n");
+        // we will evaluate the list as a command
+        BruterInt result = bruter_call(context, args);
+        if (result >= 0)
+        {
+            // if the result is valid, we return it
+            return result;
+        }
+
+        // special return to interrupt the evaluation, because we already found a step that can handle this type
+        return BR_SPECIAL_RETURN;
     }
-    else if (br_arg_get_type(context, args, -1) == BR_TYPE_BAKED) // a list of lists, pre-compiled code
+
+    // means is not the type we are looking for;
+    return -1;
+};
+
+BR_EVALUATOR_STEP(eval_step_baked)
+{
+    if (br_arg_get_type(context, args, -1) == BR_TYPE_BAKED)
     {
+        // we will evaluate the baked code as a command
         BruterList *compiled = (BruterList*)br_arg_get_pointer(context, args, -1);
-        return br_baked_call(context, compiled);
+        BruterInt result = br_baked_call(context, compiled);
+        if (result >= 0)
+        {
+            // if the result is valid, we return it
+            return result;
+        }
+
+        // special return to interrupt the evaluation, because we already found a step that can handle this type
+        return BR_SPECIAL_RETURN;
     }
-    else if (br_arg_get_type(context, args, -1) == BR_TYPE_USER_FUNCTION) // a user-defined function
+
+    // means is not the type we are looking for;
+    return -1;
+};
+
+BR_EVALUATOR_STEP(eval_step_user_function)
+{
+    // a user-defined function
+    if (br_arg_get_type(context, args, -1) == BR_TYPE_USER_FUNCTION) 
     {
         BruterList *compiled = (BruterList*)br_arg_get_pointer(context, args, -1);
         BruterList *temp_list = bruter_new(sizeof(void*), false, false);
-        BruterInt result = -1;
+        
+        // special return to interrupt the evaluation
+        BruterInt result = BR_SPECIAL_RETURN;
+        
         for (BruterInt i = 0; i < compiled->size; i++)
         {
             BruterList *current_command = (BruterList*)bruter_get_pointer(context, compiled->data[i].i);
@@ -1263,7 +1344,9 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
             {
                 printf("BR_ERROR: command %" PRIdPTR " is NULL in user function\n", i);
                 bruter_free(temp_list);
-                return -1;
+
+                // special return to interrupt the evaluation
+                return BR_SPECIAL_RETURN;
             }
 
             // we will create a temporary list to store the arguments for the command
@@ -1272,7 +1355,7 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                 // unlikely because we expect most of the arguments not to be provided by the user
                 if (unlikely(current_command->data[j].i < 0)) // if a function argument
                 {
-                    if (current_command->data[j].i == BR_SPREAD_ARG) // if it is a spread argument
+                    if (current_command->data[j].i == BR_SPECIAL_RETURN) // if it is a spread argument
                     {
                         // we will spread the arguments from the args list
                         // UInt is used to avoid signed integer overflow
@@ -1284,11 +1367,14 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                     else
                     {
                         // if index is %0, we will use args->data[1]
-                        BruterInt arg_index = -current_command->data[j].i - 1; // convert to positive index
+                        // convert to positive index
+                        BruterInt arg_index = -current_command->data[j].i - 1;
                         if (unlikely(arg_index < 0 || arg_index >= args->size))
                         {
                             printf("BR_ERROR: argument index %" PRIdPTR " out of range in args of size %" PRIdPTR "\n", arg_index, args->size);
-                            return -1;
+                            
+                            // special return to interrupt the evaluation
+                            return BR_SPECIAL_RETURN;
                         }
                         bruter_push_int(temp_list, br_arg_get_index(args, arg_index), NULL, BR_TYPE_ANY);
                     }
@@ -1300,9 +1386,9 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
                 }
             }
             result = bruter_call(context, temp_list);
-            if (result != -1)
+            if (result > -1)
             {
-                // if the result is not -1, we can break the loop
+                // if the result > -1, we can break the loop
                 break;
             }
 
@@ -1310,13 +1396,57 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
             temp_list->size = 0;
         }
         bruter_free(temp_list);
-        return result;
+
+        // if the result is valid, we return it
+        if (result >= 0)
+        {
+            return result;
+        }
+        
+        // special return to interrupt the evaluation, because we already found a step that can handle this type
+        return BR_SPECIAL_RETURN;
     }
-    else
+    // means is not the type we are looking for
+    return -1;
+};
+
+STATIC_INLINE BruterList* br_simple_evaluator(void)
+{
+    BruterList *_evaluator = bruter_new(8, true, false);
+    
+    // old 
+    bruter_push(_evaluator, (BruterValue){.eval_step = eval_step_function}, "function", 0);
+    bruter_push(_evaluator, (BruterValue){.eval_step = eval_step_buffer}, "buffer", 0);
+    bruter_push(_evaluator, (BruterValue){.eval_step = eval_step_list}, "list", 0);
+    bruter_push(_evaluator, (BruterValue){.eval_step = eval_step_baked}, "baked", 0);
+    bruter_push(_evaluator, (BruterValue){.eval_step = eval_step_user_function}, "user_function", 0);
+    
+    return _evaluator;
+}
+
+// directly evaluate a command from a list, totally unsafe, prefer to use br_eval when possible
+STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, BruterList *args)
+{
+    BruterList *evaluator = br_get_evaluator(context);
+    BruterInt result = -1;
+    for (BruterInt i = 0; i < evaluator->size; i++)
     {
-        printf("BR_ERROR: invalid function type %d for command '%s'\n", br_arg_get_type(context, args, -1), br_arg_get_key(context, args, -1));
-        return -1;
+        EvaluatorStep step = evaluator->data[i].eval_step;
+        result = step(context, parser, args);
+        if (result >= 0)
+        {
+            // if the step returns a valid result, we can return it
+            return result;
+        }
+        else if (result == BR_SPECIAL_RETURN)
+        {
+            // if the step returns BR_SPECIAL_RETURN means we should interrupt the evaluation
+            // it is used to indicate that the evaluation should stop because its already done
+            return -1;
+        }
     }
+
+    printf("BR_ERROR: no evaluator step found for the type: %d\n", br_arg_get_type(context, args, -1));
     return -1; // if we reach this point, something went wrong
 }
 
@@ -1366,7 +1496,7 @@ STATIC_INLINE BruterList *br_get_parser(const BruterList *context)
     BruterInt parser_index = bruter_find_key(context, "parser");
     if (unlikely(parser_index == -1))
     {
-        printf("BR_ERROR: failed to create parser variable\n");
+        printf("BR_ERROR: failed to find parser variable\n");
         exit(EXIT_FAILURE);
     }
     return (BruterList*)context->data[parser_index].p;
@@ -1377,10 +1507,21 @@ STATIC_INLINE BruterList *br_get_unused(const BruterList *context)
     BruterInt unused_index = bruter_find_key(context, "unused");
     if (unlikely(unused_index == -1))
     {
-        printf("BR_ERROR: failed to create unused variable\n");
+        printf("BR_ERROR: failed to find unused variable\n");
         exit(EXIT_FAILURE);
     }
     return (BruterList*)context->data[unused_index].p;
+}
+
+STATIC_INLINE BruterList *br_get_evaluator(const BruterList *context)
+{
+    BruterInt eval_index = bruter_find_key(context, "evaluator");
+    if (unlikely(eval_index == -1))
+    {
+        printf("BR_ERROR: failed to find evaluator variable\n");
+        exit(EXIT_FAILURE);
+    }
+    return (BruterList*)context->data[eval_index].p;
 }
 
 STATIC_INLINE BruterInt br_add_function(BruterList *context, const char *name, BruterInt (*func)(BruterList *context, BruterList *args))
