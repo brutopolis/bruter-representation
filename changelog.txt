@@ -9,6 +9,7 @@
 - now the comment step completely ignores the next, it also still working as "word commenter" as well;
 - the reuse step can now force creating a new var instead, with $$ prefix: "$$name whatever" or "$$ whatever";
 - the key step now can set type too using syntax: whatever @@type;
+- br_str_special_space_split now does carry the size at its starting bytes, parser steps need to be made with that in mind;
 - some bugs fixed;
 
 TODO: add @@@value to set the contents of the last value, sounds useless, but can be very useful actually;

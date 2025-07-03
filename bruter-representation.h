@@ -25,14 +25,14 @@ union BruterValue
         double f;
         int64_t (*fn)(struct BruterList *context, struct BruterList *args);
         // step function, used to parse the input
-        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int64_t current_word, int64_t current_step, char *str);
+        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int64_t word_index, int64_t step_index);
     #else
         int32_t i;
         uint32_t u;
         float f;
         int32_t (*fn)(struct BruterList *context, struct BruterList *args);
         // step function, used to parse the input
-        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int32_t current_word, int32_t current_step, char *str);
+        bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, int32_t word_index, int32_t step_index);
     #endif
 
     void* p;
@@ -55,18 +55,17 @@ enum BR_TYPES
 
 #define BR_INIT(name) void init_##name(BruterList *context)
 #define BR_FUNCTION(name) BruterInt name(BruterList *context, BruterList *args)
-#define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt current_word, BruterInt current_step, char *str)
+#define BR_PARSER_STEP(name) bool name(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt word_index, BruterInt step_index)
 
 // supress unused args warning in parser steps
 #define BR_SUPRESS_UNUSED_WARNING() (void)(context); \
                                   (void)(parser); \
                                   (void)(result); \
-                                  (void)(current_word); \
-                                  (void)(current_step); \
-                                  (void)(str)
+                                  (void)(word_index); \
+                                  (void)(step_index)
 
 // parser step type
-typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt current_word, BruterInt current_step, char *str);
+typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt word_index, BruterInt step_index);
 
 // bruter spread argument
 #define BR_SPREAD_ARG INTPTR_MIN + 1
@@ -90,11 +89,17 @@ STATIC_INLINE void          br_arg_set_index(BruterList *args, BruterInt arg_ind
 
 STATIC_INLINE char*         br_str_duplicate(const char *str);
 STATIC_INLINE char*         br_str_nduplicate(const char *str, size_t size);
-STATIC_INLINE BruterList*   br_str_space_split(const char *str);
-STATIC_INLINE BruterList*   br_str_split(const char *str, char delim);
 STATIC_INLINE char*         br_str_format(const char *format, ...);
 
-STATIC_INLINE BruterList*   br_simple_parser(void); // returns a parser with the basic steps
+// the three functions below are meant for internal use only, use at your own risk bcause they have "weird" behavior
+// especifically for the parser(and br_str_special_space_split)
+// used to create a string with the size on the first bytes
+STATIC_INLINE char*         br_sized_string(const char *str, size_t size);
+STATIC_INLINE BruterList*   br_str_special_space_split(const char *str);
+STATIC_INLINE BruterList*   br_str_split(const char *str, char delim);
+
+// returns a parser with the basic steps
+STATIC_INLINE BruterList*   br_simple_parser(void); 
 
 STATIC_INLINE BruterList*   br_new_context(BruterInt initial_size);
 STATIC_INLINE BruterInt     br_new_var(BruterList *context, BruterValue value, const char* key, int8_t type);
@@ -278,7 +283,32 @@ STATIC_INLINE char* br_str_format(const char *format, ...)
     return str;
 }
 
-STATIC_INLINE BruterList* br_str_space_split(const char *str)
+// only for internal use, especially for the br_str_special_space_split and the parser
+STATIC_INLINE char* br_sized_string(const char *str, size_t size)
+{
+    // allocate memory for the string, including the size at the beginning
+    // we add 1 for the null-terminator and sizeof(size_t) for the size
+    char *tmp = (char*)malloc(size + 1 + sizeof(size_t));
+    if (unlikely(tmp == NULL))
+    {
+        printf("BR_ERROR: failed to allocate memory for string duplication\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    // copy the string without the parentheses
+    memcpy(tmp + sizeof(size_t), str, size);
+
+    // store the size at the beginning
+    memcpy(tmp, &size, sizeof(size_t));
+    
+    // null-terminate the string
+    tmp[size + sizeof(size_t)] = '\0';
+    return tmp;
+}
+
+// this has a special behavior, every string has a machine-word at the beginning of each string, which is the size of the string
+// so the string itself is always str + machine-word-size
+STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
 {
     BruterList *splited = bruter_new(sizeof(void*), false, false);
     size_t i = 0;
@@ -301,8 +331,8 @@ STATIC_INLINE BruterList* br_str_space_split(const char *str)
             }
             if (count == 0) 
             {
-                char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
+                char *tmp = br_sized_string(str + i, j - i);
+                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
                 i = j;
                 continue;
             }
@@ -324,8 +354,8 @@ STATIC_INLINE BruterList* br_str_space_split(const char *str)
             }
             if (count == 0) 
             {
-                char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
+                char *tmp = br_sized_string(str + i, j - i);
+                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
                 i = j;
                 continue;
             }
@@ -347,8 +377,8 @@ STATIC_INLINE BruterList* br_str_space_split(const char *str)
             }
             if (count == 0) 
             {
-                char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
+                char *tmp = br_sized_string(str + i, j - i);
+                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
                 i = j;
                 continue;
             }
@@ -370,8 +400,8 @@ STATIC_INLINE BruterList* br_str_space_split(const char *str)
             }
             if (count == 0) 
             {
-                char *tmp = br_str_nduplicate(str + i, j - i);
-                bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
+                char *tmp = br_sized_string(str + i, j - i);
+                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
                 i = j;
                 continue;
             }
@@ -386,8 +416,9 @@ STATIC_INLINE BruterList* br_str_space_split(const char *str)
             size_t j = i;
             char *tmp = NULL;
             while (str[j] != '\0' && !isspace((unsigned char)str[j])) j++;
-            tmp = br_str_nduplicate(str + i, j - i);
-            bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
+            tmp = br_sized_string(str + i, j - i);
+            // push the string to the list
+            bruter_push_pointer(splited, (void*)tmp, NULL, 0);
             i = j;
         }
     }
@@ -494,9 +525,17 @@ STATIC_INLINE void br_clear_var(BruterList *context, BruterInt index)
 STATIC_INLINE BR_PARSER_STEP(parser_char)
 {
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '\'' && str[2] == '\'')
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+    
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    if (current_word[0] == '\'' && current_word[2] == '\'')
     {
-        BruterInt index = br_new_var(context, (BruterValue){.i = str[1]}, NULL, BR_TYPE_ANY);
+        BruterInt index = br_new_var(context, (BruterValue){.i = current_word[1]}, NULL, BR_TYPE_ANY);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
     }
@@ -507,12 +546,20 @@ STATIC_INLINE BR_PARSER_STEP(parser_list)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '[') // its a list
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    if (current_word[0] == '[') // its a list
     {
         BruterList *list = NULL;
         BruterInt index = -1;
-        str[strlen(str) - 1] = '\0'; // remove the closing parenthesis
-        list = br_parse(context, br_get_parser(context), str + 1); // parse the list
+        current_word[strlen(current_word) - 1] = '\0'; // remove the closing parenthesis
+        list = br_parse(context, br_get_parser(context), current_word + 1); // parse the list
         index = br_new_var(context, (BruterValue){.p=(void*)list}, NULL, BR_TYPE_LIST);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
@@ -524,9 +571,17 @@ STATIC_INLINE BR_PARSER_STEP(parser_expression)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '(')
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    if (current_word[0] == '(')
     {
-        char* temp = str + 1;
+        char* temp = current_word + 1;
         BruterInt res = -1;
         temp[strlen(temp) - 1] = '\0';
         res = br_eval(context, parser, temp);
@@ -540,10 +595,18 @@ STATIC_INLINE BR_PARSER_STEP(parser_string)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '{')
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    if (current_word[0] == '{')
     {
         BruterInt index = -1;
-        char* new_str = br_str_nduplicate(str + 1, strlen(str) - 2);
+        char* new_str = br_str_nduplicate(current_word + 1, strlen(current_word) - 2);
         index = br_new_var(context, (BruterValue){.p=(void*)new_str}, NULL, BR_TYPE_BUFFER);
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
         return true;
@@ -555,34 +618,42 @@ STATIC_INLINE BR_PARSER_STEP(parser_number)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if ((str[0] >= '0' && str[0] <= '9') || str[0] == '-') // number
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    if ((current_word[0] >= '0' && current_word[0] <= '9') || current_word[0] == '-') // number
     {
         BruterInt index = br_new_var(context, (BruterValue){.p=NULL}, NULL, 0);
         
-        if (str[0] == '0' && str[1] == 'x') // hex
+        if (current_word[0] == '0' && current_word[1] == 'x') // hex
         {
-            context->data[index].i = strtol(str+2, NULL, 16);
+            context->data[index].i = strtol(current_word+2, NULL, 16);
             context->types[index] = BR_TYPE_ANY;
         }
-        else if (str[0] == '0' && str[1] == 'b') // bin
+        else if (current_word[0] == '0' && current_word[1] == 'b') // bin
         {
-            context->data[index].i = strtol(str+2, NULL, 2);
+            context->data[index].i = strtol(current_word+2, NULL, 2);
             context->types[index] = BR_TYPE_ANY;
             
         }
-        else if (str[0] == '0' && str[1] == 'o') // oct
+        else if (current_word[0] == '0' && current_word[1] == 'o') // oct
         {
-            context->data[index].i = strtol(str+2, NULL, 8);
+            context->data[index].i = strtol(current_word+2, NULL, 8);
             context->types[index] = BR_TYPE_ANY;
         }
-        else if (strchr(str, '.')) // float
+        else if (strchr(current_word, '.')) // float
         {
-            context->data[index].f = atof(str);
+            context->data[index].f = atof(current_word);
             context->types[index] = BR_TYPE_FLOAT;
         }
         else // int
         {
-            context->data[index].i = atol(str);
+            context->data[index].i = atol(current_word);
             context->types[index] = BR_TYPE_ANY;
         }
 
@@ -596,39 +667,47 @@ STATIC_INLINE BR_PARSER_STEP(parser_key)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '@') // key
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    if (current_word[0] == '@') // key
     {
         if (unlikely(result->size <= 0))
         {
             printf("result size: %" PRIdPTR ", but we need at least 1 element\n", result->size);
-            printf("BR_ERROR: %s has no previous value\n", str);
+            printf("BR_ERROR: %s has no previous value\n", current_word);
         }
         else if (unlikely(result->data[result->size - 1].i == -1))
         {
-            printf("BR_ERROR: %s previous value is not a variable\n", str);
+            printf("BR_ERROR: %s previous value is not a variable\n", current_word);
         }
-        else if (str[1] == '@') // type
+        else if (current_word[1] == '@') // type
         {
-            if (unlikely(str[2] == '\0')) // @@, not valid
+            if (unlikely(current_word[2] == '\0')) // @@, not valid
             {
                 printf("BR_ERROR: @@ alone is not valid\n");
             }
             else // whatever @@type, 100% valid
             {
-                if (isdigit(str[2])) // @@type, where type is a number, faster
+                if (isdigit(current_word[2])) // @@type, where type is a number, faster
                 {
-                    int8_t type = atoi(str + 2);
+                    int8_t type = atoi(current_word + 2);
                     context->types[result->data[result->size - 1].i] = type;
                     // we dont need to push anything to the result, just set the type
                 }
                 else
                 {
                     // whatever @@type, where type is a string
-                    BruterInt found = bruter_find_key(context, str + 2);
+                    BruterInt found = bruter_find_key(context, current_word + 2);
 
                     if (unlikely(found == -1)) // not found
                     {
-                        printf("BR_ERROR: type %s not found\n", str + 2);
+                        printf("BR_ERROR: type %s not found\n", current_word + 2);
                     }
                     else // found, we set the type
                     {
@@ -638,14 +717,14 @@ STATIC_INLINE BR_PARSER_STEP(parser_key)
                 }
             }
         }
-        else if (str[1] ==  '\0') // invalid
+        else if (current_word[1] ==  '\0') // invalid
         {
             printf("BR_ERROR: @ alone is not valid\n");
             bruter_push_int(result, -1, NULL, 0);
         }
         else // default key behavior
         {
-            context->keys[result->data[result->size - 1].i] = br_str_duplicate(str + 1);
+            context->keys[result->data[result->size - 1].i] = br_str_duplicate(current_word + 1);
             // thats it, we dont need to push anything to the result
         }
         return true;
@@ -658,14 +737,22 @@ STATIC_INLINE BR_PARSER_STEP(parser_reuse)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '$') // next key
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    if (current_word[0] == '$') // next key
     {
         BruterList *unused = br_get_unused(context);
 		
         // if the next key is a number, we will use it as an index
-		if (isdigit(str[1]))
+		if (isdigit(current_word[1]))
         {
-            BruterInt index = atol(str + 1);
+            BruterInt index = atol(current_word + 1);
             if (index < 0 || index >= unused->size)
             {
                 printf("BR_ERROR: index %" PRIdPTR " out of range in unused list of size %" PRIdPTR "\n", index, unused->size);
@@ -677,15 +764,15 @@ STATIC_INLINE BR_PARSER_STEP(parser_reuse)
             br_clear_var(context, index);
 			
             // we put the key to the context
-            context->keys[index] = br_str_duplicate(str + 1);
+            context->keys[index] = br_str_duplicate(current_word + 1);
         }
-		else if (str[1] == '$') // force not to reuse a key, but to create a new one
+		else if (current_word[1] == '$') // force not to reuse a key, but to create a new one
 		{
             // we'll need the unused list
             BruterList *unused = br_get_unused(context);
 
-            char* new_name = str + 2;
-            if (str[2] == '\0') // $$ whatever
+            char* new_name = current_word + 2;
+            if (current_word[2] == '\0') // $$ whatever
             {
                 // lets push a empty unamed integer
                 bruter_push_int(context, 0, NULL, 0);
@@ -700,11 +787,11 @@ STATIC_INLINE BR_PARSER_STEP(parser_reuse)
 		}
         else
         {
-            BruterInt found = bruter_find_key(context, str + 1);
+            BruterInt found = bruter_find_key(context, current_word + 1);
             // if the key is not found, we create a new one
             if (found == -1)
             {
-                BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, str + 1, 0);
+                BruterInt index = br_new_var(context, (BruterValue){.p = NULL}, current_word + 1, 0);
                 bruter_push(unused, (BruterValue){.i = index}, NULL, 0);
             }
             else 
@@ -739,10 +826,18 @@ STATIC_INLINE BR_PARSER_STEP(parser_direct_access)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
     // direct access
-    if (str[0] == '<')
+    if (current_word[0] == '<')
     {
-        char* temp = br_str_nduplicate(str + 1, strlen(str) - 2);
+        char* temp = br_str_nduplicate(current_word + 1, strlen(current_word) - 2);
         BruterList* bracket_args = br_parse(context, parser, temp);
         if (bracket_args->size > 0)
         {
@@ -765,10 +860,19 @@ STATIC_INLINE BR_PARSER_STEP(parser_direct_access)
 
 STATIC_INLINE BR_PARSER_STEP(parser_variable)
 {
-    BruterInt index = bruter_find_key(context, str);
     
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
+    BruterInt index = bruter_find_key(context, current_word);
+    
     if (index != -1)
     {
         bruter_push(result, (BruterValue){.i = index}, NULL, 0);
@@ -776,7 +880,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_variable)
     }
     else 
     {
-        printf("BR_ERROR: variable %s not found\n", str);
+        printf("BR_ERROR: variable %s not found\n", current_word);
         bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
         return false;
     }
@@ -786,15 +890,23 @@ STATIC_INLINE BR_PARSER_STEP(parser_comment)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
 
     // this is a comment parser, it will ignore the next word, doesnt matter what it is
-    if (str[0] == '/' && str[1] == '/')
+    if (current_word[0] == '/' && current_word[1] == '/')
     {
         // lets verify if we have a next word
-        if (current_word + 1 < splited_command->size)
+        if (word_index + 1 < splited_command->size)
         {
             // lets remove the next word
-            void* removed_str = bruter_remove_pointer(splited_command, current_word + 1);
+            void* removed_str = bruter_remove_pointer(splited_command, word_index + 1);
 
             // and free it
             free(removed_str);
@@ -811,21 +923,29 @@ STATIC_INLINE BR_PARSER_STEP(parser_spread)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
 
     // this is a spread parser, it will expand the list into the result
-    if (str[0] == '.' && str[1] == '.' && str[2] == '.')
+    if (current_word[0] == '.' && current_word[1] == '.' && current_word[2] == '.')
     {
-        BruterInt found = bruter_find_key(context, str + 3);
+        BruterInt found = bruter_find_key(context, current_word + 3);
         BruterList *spread_list = NULL;
         if (found == -1)
         {
-            printf("BR_ERROR: spread variable %s not found\n", str + 3);
+            printf("BR_ERROR: spread variable %s not found\n", current_word + 3);
             bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
             return false;
         }
         else if (context->types[found] != BR_TYPE_LIST)
         {
-            printf("BR_ERROR: spread variable %s is not a list\n", str + 3);
+            printf("BR_ERROR: spread variable %s is not a list\n", current_word + 3);
             bruter_push(result, (BruterValue){.i = -1}, NULL, 0);
             return false;
         }
@@ -854,11 +974,19 @@ STATIC_INLINE BR_PARSER_STEP(parser_function_arg)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
+    
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+    
 
     // this is a function argument parser, it will be added to the parser just when baking a function
-    if (str[0] == '%' && isdigit(str[1]))
+    if (current_word[0] == '%' && isdigit(current_word[1]))
     {
-        BruterInt index = atol(str + 1);
+        BruterInt index = atol(current_word + 1);
 
         // we use negative index to indicate that this is a function argument
         // while -1 is usually used for errors, we can use it here because baked function SHOULD NOT have any errors
@@ -866,7 +994,7 @@ STATIC_INLINE BR_PARSER_STEP(parser_function_arg)
         bruter_push_int(result, -index - 1, NULL, 0);
         return true;
     }
-    else if (str[0] == '.' && str[1] == '.' && str[2] == '.' && str[3] == '%') // spread arguments
+    else if (current_word[0] == '.' && current_word[1] == '.' && current_word[2] == '.' && current_word[3] == '%') // spread arguments
     {
         // this is a special if the use wanna spread the arguments in this exact place
         // we will push a special value to indicate that this is a spread argument
@@ -884,7 +1012,15 @@ STATIC_INLINE BR_PARSER_STEP(parser_function)
 {
     // just to ignore unused warning
     BR_SUPRESS_UNUSED_WARNING();
-    if (str[0] == '(' && str[1] == '%')
+    // we need to get the current word from the splited command
+    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));
+    
+    // we need to get the size of the current word, which is stored in the first bytes
+    size_t current_word_size = 0;
+    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+
+    
+    if (current_word[0] == '(' && current_word[1] == '%')
     {
         const char* temp = NULL;
         bool need_args = false; // we will check if the function needs arguments
@@ -892,10 +1028,10 @@ STATIC_INLINE BR_PARSER_STEP(parser_function)
         BruterList *list_ptr = NULL;
         
         bruter_unshift(parser, (BruterValue){.step = parser_function_arg}, "std_function", 0);
-        str[strlen(str) - 1] = '\0'; // remove the closing parenthesis
+        current_word[strlen(current_word) - 1] = '\0'; // remove the closing parenthesis
 
-        temp = str + 2;
-        while (str[0] == ' ' || str[0] == '\t' || str[0] == '\n' || str[0] == '\r') // remove leading spaces
+        temp = current_word + 2;
+        while (current_word[0] == ' ' || current_word[0] == '\t' || current_word[0] == '\n' || current_word[0] == '\r') // remove leading spaces
         {
             temp++;
         }
@@ -980,7 +1116,7 @@ STATIC_INLINE BruterList* br_parse(BruterList *context, BruterList* parser, cons
 {
     BruterList *result = bruter_new(sizeof(void*), false, false);
     
-    BruterList *splited = br_str_space_split(cmd);
+    BruterList *splited = br_str_special_space_split(cmd);
     char* str = NULL;
     BruterInt i = 0;
 
@@ -991,7 +1127,7 @@ STATIC_INLINE BruterList* br_parse(BruterList *context, BruterList* parser, cons
         for (BruterInt j = 0; j < parser->size; j++)
         {
             ParserStep step = (ParserStep)parser->data[j].step;
-            if (step(context, parser, result, splited, i, j, str))
+            if (step(context, parser, result, splited, i, j))
             {
                 // if the step returns true, means it was successful
                 // we can break the loop and continue to the next string
