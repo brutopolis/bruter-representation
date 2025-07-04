@@ -584,7 +584,11 @@ STATIC_INLINE BruterList *br_new_context(BruterInt initial_size)
     // it will grow as needed
     BruterList* context = bruter_new(initial_size, true, true);
 
-    // those could be done automatically when needed, but would print a warning
+    // lets add the delimiter variable
+    // this is used to split commands, by default it is ';'
+    // but it can be changed by the user
+    bruter_push_int(context, (BruterInt)';', "delimiter", BR_TYPE_ANY);
+    
     // lets push the unused list to the context
     // we do this manually because br_new_var would automatically create the unused list if it does not exist
     bruter_push_pointer(context, (void*)bruter_new(sizeof(BruterValue), false, false), "unused", BR_TYPE_LIST);
@@ -652,7 +656,20 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
 
 STATIC_INLINE BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
 {
-    BruterList *splited = br_str_split(cmd, ';');
+    BruterInt found_delimiter = bruter_find_key(context, "delimiter");
+
+    char delimiter = ';';
+
+    if (unlikely(found_delimiter == -1))
+    {
+        br_new_var(context, (BruterValue){.i = (intptr_t)';'}, "delimiter", BR_TYPE_ANY);
+    }
+    else
+    {
+        delimiter = (char)context->data[found_delimiter].i;
+    }
+
+    BruterList *splited = br_str_split(cmd, delimiter);
     char* str = NULL;
     BruterInt result = -1;
 
