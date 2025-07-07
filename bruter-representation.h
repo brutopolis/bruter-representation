@@ -361,29 +361,6 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
                 continue;
             }
         }
-        else if (str[i] == '<')
-        {
-            size_t j = i + 1, count = 1;
-            while (count != 0 && str[j] != '\0')
-            {
-                if (str[j] == '<' && str[j - 1] != '\\') 
-                {
-                    count++;
-                }
-                else if (str[j] == '>' && str[j - 1] != '\\') 
-                {
-                    count--;
-                }
-                j++;
-            }
-            if (count == 0) 
-            {
-                char *tmp = br_sized_string(str + i, j - i);
-                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
-                i = j;
-                continue;
-            }
-        }
         else if (isspace((unsigned char)str[i]))
         {
             i++;
@@ -395,6 +372,7 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
             char *tmp = NULL;
             while (str[j] != '\0' && !isspace((unsigned char)str[j])) j++;
             tmp = br_sized_string(str + i, j - i);
+
             // push the string to the list
             bruter_push_pointer(splited, (void*)tmp, NULL, 0);
             i = j;
@@ -406,20 +384,36 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
 STATIC_INLINE BruterList* br_str_split(const char *str, char delim)
 {
     BruterList *splited = bruter_new(sizeof(void*), false, false);
-    int recursion = 0, curly = 0, bracket = 0, angle = 0;  // Added angle bracket counter
+    int recursion = 0, curly = 0, bracket = 0;  // Added angle bracket counter
     size_t i = 0, last_i = 0;
     while (str[i] != '\0')
     {
-        if (str[i] == '(' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket && !angle) recursion++;
-        else if (str[i] == ')' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket && !angle) recursion--;
-        else if (str[i] == '{' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket && !angle) curly++;
-        else if (str[i] == '}' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket && !angle) curly--;
-        else if (str[i] == '[' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !angle) bracket++;
-        else if (str[i] == ']' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !angle) bracket--;
-        else if (str[i] == '<' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !bracket) angle++;
-        else if (str[i] == '>' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly && !bracket) angle--;
+        if (str[i] == '(' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket) 
+        {
+            recursion++;
+        }
+        else if (str[i] == ')' && (i == 0 || str[i - 1] != '\\') && !curly && !bracket) 
+        {
+            recursion--;
+        }
+        else if (str[i] == '{' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket) 
+        {
+            curly++;
+        }
+        else if (str[i] == '}' && (i == 0 || str[i - 1] != '\\') && !recursion && !bracket) 
+        {
+            curly--;
+        }
+        else if (str[i] == '[' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly) 
+        {
+            bracket++;
+        }
+        else if (str[i] == ']' && (i == 0 || str[i - 1] != '\\') && !recursion && !curly) 
+        {
+            bracket--;
+        }
 
-        if (str[i] == delim && !recursion && !curly && !bracket && !angle)
+        if (str[i] == delim && !recursion && !curly && !bracket)
         {
             char *tmp = br_str_nduplicate(str + last_i, i - last_i);
             bruter_push(splited, (BruterValue){.p = tmp}, NULL, 0);
