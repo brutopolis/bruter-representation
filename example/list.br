@@ -3,15 +3,20 @@ load {list};
 load {io};
 load {type};
 
-# [<return> <88>] @ctx;
-# [<0> <1>] @cmd;
+# [&return &88]
+    name: ctx;
+
+# [&0 &1]
+    name: cmd;
 
 print.int (list.call ctx cmd);
 
-list.unshift [] @abc print.int;
+list.unshift [] name: abc print.int;
 list.push abc 99;
 print.list abc;
 // {we need to type this list as baked to avoid error};
-[abc] @abc2 @@5;
+[abc] 
+    name: abc2 
+    type: 5;
 
-return 4;
+: 4;

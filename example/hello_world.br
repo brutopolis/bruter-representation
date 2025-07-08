@@ -1,5 +1,5 @@
 load {io};
 load {std};
-# {hello world!} @str;
+# {hello world!} name: str;
 print.string str;
-return 0;
+: 0;

@@ -4,7 +4,7 @@ load {io};
 load {condition};
 load {bsr};
 
-# (bsr.new {window title "BSR Example"} 320 240) @win;
+# (bsr.new {window title "BSR Example"} 320 240) name: win;
 
 while {bsr.wait_sync win} 
 {

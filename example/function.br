@@ -4,6 +4,6 @@ load {io};
 # (% 
     print.int %0;
     print.int %1;
-) @m;
+) name: m;
 print.list context;
 m 1 3;

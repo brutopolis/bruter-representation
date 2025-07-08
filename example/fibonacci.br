@@ -1,0 +1,33 @@
+int fibonacci(int n) {
+  int x;
+  
+  if (n == 1) {
+    return(1);
+  }
+  
+  if (n == 2) {
+    return(1);
+  }
+  
+  x = fibonacci(n-1) + fibonacci(n-2);
+  return(x);
+}
+
+load {std};
+load {io};
+load {condition};
+
+# $fib (% 
+    if {i== %0 1} {return 1};
+    condition? {this exists};
+    # (i== %0 2) @a;
+    a? {return 1}; 
+    @fibresult 
+);
+
+# (% 
+    print.int %0;
+    print.int %1;
+) @m;
+print.list context;
+m 1 3;
