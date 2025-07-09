@@ -53,11 +53,14 @@ enum BR_TYPES
 #define BR_EVALUATOR_STEP(name) BruterInt name(BruterList *context, BruterList *parser, BruterList *args)
 
 // supress unused args warning in parser steps
-#define BR_SUPRESS_UNUSED_WARNING() (void)(context); \
-                                  (void)(parser); \
-                                  (void)(result); \
-                                  (void)(word_index); \
-                                  (void)(step_index)
+#define BR_PARSER_STEP_BASICS() (void)(context); \
+                                    (void)(parser); \
+                                    (void)(result); \
+                                    (void)(word_index); \
+                                    (void)(step_index); \
+                                    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));\
+                                    size_t current_word_size = 0;\
+                                    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
 
 // parser step type
 typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt word_index, BruterInt step_index);
@@ -370,7 +373,10 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
         {
             size_t j = i;
             char *tmp = NULL;
-            while (str[j] != '\0' && !isspace((unsigned char)str[j])) j++;
+            while (str[j] != '\0' && !isspace((unsigned char)str[j])) 
+            {
+                j++;
+            }
             tmp = br_sized_string(str + i, j - i);
 
             // push the string to the list

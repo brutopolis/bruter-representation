@@ -1,7 +1,7 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
-(04/07/2025) - version 1.1.1
+(09/07/2025) - version 1.1.1
 
 - this is the actual major update like bruter 0.9.0;
 - br_evaluate e now modular just like br_parse;
@@ -19,9 +19,9 @@
 - br_eval now gets the file by himself instead receive parser as argument;
 - some bugs fixed;
 
-TODO: implement prototypes(maybe as lib, maybe as part of bruterlang);
+TODO: implement prototypes;
 TODO: change br_add_function order, receive the name as 3rd arg instead 2nd;
-TODO: write proper documentation and change logs;
+TODO: write proper documentation;
 
 (27/06/2025) - version 1.1.0
 
