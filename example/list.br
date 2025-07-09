@@ -3,11 +3,13 @@ load {list};
 load {io};
 load {type};
 
-# [&return &88]
+# [return ::index 88 ::index]
     name: ctx;
 
-# [&0 &1]
+# [0 ::index 1 ::index]
     name: cmd;
+
+print.list cmd ctx;
 
 print.int (list.call ctx cmd);
 
@@ -17,6 +19,6 @@ print.list abc;
 // {we need to type this list as baked to avoid error};
 [abc] 
     name: abc2 
-    type: 5;
+    type: 6;
 
-: 4;
+return 4;

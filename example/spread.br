@@ -2,7 +2,7 @@ load {std};
 load {list};
 load {io};
 
-# [5 10] 
+# [5 10]
     name: test;
 print ...test;
-: 0;
+return 0;
