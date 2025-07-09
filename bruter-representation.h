@@ -100,7 +100,7 @@ STATIC_INLINE void          br_clear_var(BruterList *context, BruterInt index);
 
 STATIC_INLINE BruterList*   br_parse(BruterList *context, BruterList *parser, const char *cmd);
 STATIC_INLINE BruterInt     br_evaluate(BruterList *context, BruterList *parser, BruterList *args);
-STATIC_INLINE BruterInt     br_eval(BruterList *context, BruterList *parser, const char *cmd);
+STATIC_INLINE BruterInt     br_eval(BruterList *context, const char *cmd);
 
 STATIC_INLINE BruterInt     br_bake_code(BruterList *context, BruterList* parser, const char *cmd);
 STATIC_INLINE BruterInt     br_baked_call(BruterList *context, BruterList *compiled);
@@ -648,8 +648,9 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
     return -1; // if we reach this point, something went wrong
 }
 
-STATIC_INLINE BruterInt br_eval(BruterList *context, BruterList* parser, const char *cmd)
+STATIC_INLINE BruterInt br_eval(BruterList *context, const char *cmd)
 {
+    BruterList *parser = br_get_parser(context);
     BruterInt found_delimiter = bruter_find_key(context, "delimiter");
 
     char delimiter = ';';

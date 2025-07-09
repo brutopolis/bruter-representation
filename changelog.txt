@@ -16,6 +16,7 @@
 - no more <> support in the string splitters;
 - attributes setters implemented, use name: and type: instead of @ and @@;
 - attributes getters implemented, use :name, :type and :index to get them;
+- br_eval now gets the file by himself instead receive parser as argument;
 - some bugs fixed;
 
 TODO: implement prototypes(maybe as lib, maybe as part of bruterlang);

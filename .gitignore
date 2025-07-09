@@ -6,3 +6,4 @@ main
 *.appimage
 .vscode
 valgrind-out.txt
+.bpm

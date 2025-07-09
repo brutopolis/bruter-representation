@@ -5,4 +5,4 @@ load {io};
 # $_index 0 $_1 1;
 
 repeat 100000 name: size {i+ _index _1;print.int _index};
-: 0;
+0.
