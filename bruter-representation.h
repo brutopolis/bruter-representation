@@ -58,9 +58,7 @@ enum BR_TYPES
                                     (void)(result); \
                                     (void)(word_index); \
                                     (void)(step_index); \
-                                    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index) + sizeof(size_t));\
-                                    size_t current_word_size = 0;\
-                                    memcpy(&current_word_size, current_word - sizeof(size_t), sizeof(size_t));
+                                    char* current_word = ((char*)bruter_get_pointer(splited_command, word_index));
 
 // parser step type
 typedef bool (*ParserStep)(BruterList *context, BruterList *parser, BruterList *result, BruterList *splited_command, BruterInt word_index, BruterInt step_index);
@@ -90,10 +88,6 @@ STATIC_INLINE char*         br_str_duplicate(const char *str);
 STATIC_INLINE char*         br_str_nduplicate(const char *str, size_t size);
 STATIC_INLINE char*         br_str_format(const char *format, ...);
 
-// the three functions below are meant for internal use only, use at your own risk bcause they have "weird" behavior
-// especifically for the parser(and br_str_special_space_split)
-// used to create a string with the size on the first bytes
-STATIC_INLINE char*         br_sized_string(const char *str, size_t size);
 STATIC_INLINE BruterList*   br_str_special_space_split(const char *str);
 STATIC_INLINE BruterList*   br_str_split(const char *str, char delim);
 
@@ -264,31 +258,6 @@ STATIC_INLINE char* br_str_format(const char *format, ...)
     return str;
 }
 
-// only for internal use, especially for the br_str_special_space_split and the parser
-STATIC_INLINE char* br_sized_string(const char *str, size_t size)
-{
-    // allocate memory for the string, including the size at the beginning
-    // we add 1 for the null-terminator and sizeof(size_t) for the size
-    char *tmp = (char*)malloc(size + 1 + sizeof(size_t));
-    if (unlikely(tmp == NULL))
-    {
-        printf("BR_ERROR: failed to allocate memory for string duplication\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    // copy the string without the parentheses
-    memcpy(tmp + sizeof(size_t), str, size);
-
-    // store the size at the beginning
-    memcpy(tmp, &size, sizeof(size_t));
-    
-    // null-terminate the string
-    tmp[size + sizeof(size_t)] = '\0';
-    return tmp;
-}
-
-// this has a special behavior, every string has a machine-word at the beginning of each string, which is the size of the string
-// so the string itself is always str + machine-word-size
 STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
 {
     BruterList *splited = bruter_new(sizeof(void*), false, false);
@@ -312,8 +281,7 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
             }
             if (count == 0) 
             {
-                char *tmp = br_sized_string(str + i, j - i);
-                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
+                bruter_push_pointer(splited, br_str_nduplicate(str + i, j - i), NULL, 0);
                 i = j;
                 continue;
             }
@@ -335,8 +303,7 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
             }
             if (count == 0) 
             {
-                char *tmp = br_sized_string(str + i, j - i);
-                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
+                bruter_push_pointer(splited, br_str_nduplicate(str + i, j - i), NULL, 0);
                 i = j;
                 continue;
             }
@@ -358,8 +325,7 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
             }
             if (count == 0) 
             {
-                char *tmp = br_sized_string(str + i, j - i);
-                bruter_push_pointer(splited, (void*)tmp, NULL, 0);
+                bruter_push_pointer(splited, br_str_nduplicate(str + i, j - i), NULL, 0);
                 i = j;
                 continue;
             }
@@ -372,15 +338,13 @@ STATIC_INLINE BruterList* br_str_special_space_split(const char *str)
         else
         {
             size_t j = i;
-            char *tmp = NULL;
             while (str[j] != '\0' && !isspace((unsigned char)str[j])) 
             {
                 j++;
             }
-            tmp = br_sized_string(str + i, j - i);
 
             // push the string to the list
-            bruter_push_pointer(splited, (void*)tmp, NULL, 0);
+            bruter_push_pointer(splited, br_str_nduplicate(str + i, j - i), NULL, 0);
             i = j;
         }
     }

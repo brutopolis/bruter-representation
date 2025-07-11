@@ -1,7 +1,7 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
-(09/07/2025) - version 1.1.1
+(11/07/2025) - version 1.1.1
 
 - this is the actual major update like bruter 0.9.0;
 - br_evaluate e now modular just like br_parse;
@@ -11,7 +11,6 @@
 - now the comment step completely ignores the next, it also still working as "word commenter" as well;
 - the reuse step can now force creating a new var instead, with $$ prefix: "$$name whatever" or "$$ whatever";
 - the key step now can set type too using syntax: whatever @@type;
-- br_str_special_space_split now does carry the size of the string at its starting bytes, parser steps need to be made with that in mind;
 - command delimiter can now be changed from ';' to anything the user wants to;
 - no more <> support in the string splitters;
 - attributes setters implemented, use name: and type: instead of @ and @@;
