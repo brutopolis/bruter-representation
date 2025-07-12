@@ -19,7 +19,7 @@
 - some bugs fixed;
 
 TODO: implement prototypes;
-TODO: change br_add_function order, receive the name as 3rd arg instead 2nd;
+TODO: remove br_add_function;
 TODO: write proper documentation;
 
 (27/06/2025) - version 1.1.0

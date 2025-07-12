@@ -45,6 +45,7 @@ enum BR_TYPES
     BR_TYPE_LIST               =  4,   // list
     BR_TYPE_BAKED              =  5,   // a list of lists, which are pre-compiled (byte)code
     BR_TYPE_USER_FUNCTION      =  6,   // user defined function, same as bake, but every negative index is a function argument
+    BR_TYPE_MACRO              =  7,   // macro, a special kind of function that is run during parsing
 };
 
 #define BR_INIT(name) void init_##name(BruterList *context)
@@ -94,6 +95,7 @@ STATIC_INLINE BruterList*   br_str_split(const char *str, char delim);
 STATIC_INLINE BruterList*   br_new_context(BruterInt initial_size);
 STATIC_INLINE BruterInt     br_new_var(BruterList *context, BruterValue value, const char* key, int8_t type);
 STATIC_INLINE void          br_clear_var(BruterList *context, BruterInt index);
+STATIC_INLINE void          br_free_context(BruterList *context);
 
 STATIC_INLINE BruterList*   br_parse(BruterList *context, BruterList *parser, const char *cmd);
 STATIC_INLINE BruterInt     br_evaluate(BruterList *context, BruterList *parser, BruterList *args);
@@ -106,8 +108,6 @@ STATIC_INLINE BruterList*   br_get_parser(const BruterList *context);
 STATIC_INLINE BruterList*   br_get_unused(const BruterList *context);
 STATIC_INLINE BruterList*   br_get_evaluator(const BruterList *context);
 
-STATIC_INLINE BruterInt     br_add_function(BruterList *context, const char *name, BruterInt (*func)(BruterList *context, BruterList *args));
-STATIC_INLINE void          br_free_context(BruterList *context);
 
 // functions definitions
 // functions definitions
@@ -118,12 +118,10 @@ STATIC_INLINE void          br_free_context(BruterList *context);
 #ifndef BRUTER_AS_HEADER // you can define this to not include the implementations
 
 // arg stuff
-BRUTER_ALLOW_AGGREGATE_RETURN()
 STATIC_INLINE BruterValue br_arg_get(const BruterList *context, const BruterList *args, BruterInt arg_index)
 {
     return context->data[args->data[arg_index+1].i];
 }
-BRUTER_FORBID_AGGREGATE_RETURN()
 
 STATIC_INLINE BruterInt br_arg_get_int(const BruterList *context, const BruterList *args, BruterInt arg_index)
 {
@@ -172,7 +170,7 @@ STATIC_INLINE void br_arg_set(BruterList *context, BruterList *args, BruterInt a
 
 STATIC_INLINE void br_arg_set_key(BruterList *context, BruterList *args, BruterInt arg_index, const char *key)
 {
-    if (unlikely(args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size))
+    if (args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size)
     {
         printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", args->data[arg_index+1].i, context->size);
         exit(EXIT_FAILURE);
@@ -184,7 +182,7 @@ STATIC_INLINE void br_arg_set_key(BruterList *context, BruterList *args, BruterI
 
 STATIC_INLINE void br_arg_set_type(BruterList *context, BruterList *args, BruterInt arg_index, int8_t type)
 {
-    if (unlikely(args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size))
+    if (args->data[arg_index+1].i < 0 || args->data[arg_index+1].i >= context->size)
     {
         printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", args->data[arg_index+1].i, context->size);
         exit(EXIT_FAILURE);
@@ -195,7 +193,7 @@ STATIC_INLINE void br_arg_set_type(BruterList *context, BruterList *args, Bruter
 
 STATIC_INLINE void br_arg_set_index(BruterList *args, BruterInt arg_index, BruterInt index)
 {
-    if (unlikely(index < 0 || index >= args->size))
+    if (index < 0 || index >= args->size)
     {
         printf("BR_ERROR: index %" PRIdPTR " out of range in list of size %" PRIdPTR " \n", index, args->size);
         exit(EXIT_FAILURE);
@@ -210,7 +208,7 @@ STATIC_INLINE char* br_str_duplicate(const char *str)
     size_t len = strlen(str);
     char *dup = (char*)malloc(len + 1);
     
-    if (unlikely(dup == NULL))
+    if (dup == NULL)
     {
         printf("BR_ERROR: failed to allocate memory for string duplication\n");
         exit(EXIT_FAILURE);
@@ -224,7 +222,7 @@ STATIC_INLINE char* br_str_nduplicate(const char *str, size_t size)
 {
     char *dup = (char*)malloc(size + 1);
     
-    if (unlikely(dup == NULL))
+    if (dup == NULL)
     {
         printf("BR_ERROR: failed to allocate memory for string duplication\n");
         exit(EXIT_FAILURE);
@@ -241,12 +239,11 @@ STATIC_INLINE char* br_str_format(const char *format, ...)
     size_t size;
     char *str = NULL;
     // This function MUST allow non-literal format strings, so we use a macro to suppress the warning
-    BRUTER_ALLOW_NON_LITERAL_FORMAT()//;
     va_start(args, format);
     size = (size_t)vsnprintf(NULL, 0, format, args);
     va_end(args);
     str = (char*)malloc(size + 1);
-    if (unlikely(str == NULL))
+    if (str == NULL)
     {
         printf("BR_ERROR: failed to allocate memory for formatted string\n");
         exit(EXIT_FAILURE);
@@ -254,7 +251,6 @@ STATIC_INLINE char* br_str_format(const char *format, ...)
     va_start(args, format);
     vsnprintf(str, size + 1, format, args);
     va_end(args);
-    BRUTER_FORBID_NON_LITERAL_FORMAT()//;
     return str;
 }
 
@@ -502,7 +498,7 @@ STATIC_INLINE BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     BruterList *compiled = bruter_new(sizeof(void*), false, false);
     BruterInt result = -1;
     
-    if (unlikely(splited->size == 0))
+    if (splited->size == 0)
     {
         bruter_free(splited);
         return -1;
@@ -512,7 +508,7 @@ STATIC_INLINE BruterInt br_bake_code(BruterList *context, BruterList *parser, co
     {
         BruterList *args = br_parse(context, parser, str = (char*)splited->data[i].p);
         BruterInt args_index = -1;
-        if (unlikely(args->size == 0))
+        if (args->size == 0)
         {
             printf("BR_WARNING: empty command in baked code\n");
             bruter_free(args);
@@ -625,7 +621,7 @@ STATIC_INLINE BruterInt br_eval(BruterList *context, const char *cmd)
 
     char delimiter = ';';
 
-    if (unlikely(found_delimiter == -1))
+    if (found_delimiter == -1)
     {
         br_new_var(context, (BruterValue){.i = (intptr_t)';'}, "delimiter", BR_TYPE_ANY);
     }
@@ -638,7 +634,7 @@ STATIC_INLINE BruterInt br_eval(BruterList *context, const char *cmd)
     char* str = NULL;
     BruterInt result = -1;
 
-    if (unlikely(splited->size == 0))
+    if (splited->size == 0)
     {
         bruter_free(splited);
         return -1;
@@ -647,7 +643,7 @@ STATIC_INLINE BruterInt br_eval(BruterList *context, const char *cmd)
     for (BruterInt i = 0; i < splited->size; i++)
     {
         BruterList *args = br_parse(context, parser, str = (char*)splited->data[i].p);
-        if (unlikely(args->size == 0 || args->data[0].i == -1 || bruter_get_pointer(context, args->data[0].i) == NULL))
+        if (args->size == 0 || args->data[0].i == -1 || bruter_get_pointer(context, args->data[0].i) == NULL)
         {
             //printf("BR_ERROR: empty command or invalid function\n");
             free(str);
@@ -676,7 +672,7 @@ STATIC_INLINE BruterInt br_eval(BruterList *context, const char *cmd)
 STATIC_INLINE BruterList *br_get_parser(const BruterList *context)
 {
     BruterInt parser_index = bruter_find_key(context, "parser");
-    if (unlikely(parser_index == -1))
+    if (parser_index == -1)
     {
         printf("BR_ERROR: failed to find parser variable\n");
         exit(EXIT_FAILURE);
@@ -687,7 +683,7 @@ STATIC_INLINE BruterList *br_get_parser(const BruterList *context)
 STATIC_INLINE BruterList *br_get_unused(const BruterList *context)
 {
     BruterInt unused_index = bruter_find_key(context, "unused");
-    if (unlikely(unused_index == -1))
+    if (unused_index == -1)
     {
         printf("BR_ERROR: failed to find unused variable\n");
         exit(EXIT_FAILURE);
@@ -698,19 +694,12 @@ STATIC_INLINE BruterList *br_get_unused(const BruterList *context)
 STATIC_INLINE BruterList *br_get_evaluator(const BruterList *context)
 {
     BruterInt eval_index = bruter_find_key(context, "evaluator");
-    if (unlikely(eval_index == -1))
+    if (eval_index == -1)
     {
         printf("BR_ERROR: failed to find evaluator variable\n");
         exit(EXIT_FAILURE);
     }
     return (BruterList*)context->data[eval_index].p;
-}
-
-STATIC_INLINE BruterInt br_add_function(BruterList *context, const char *name, BruterInt (*func)(BruterList *context, BruterList *args))
-{
-    // we will create a new function variable in the context
-    BruterInt index = br_new_var(context, (BruterValue){.fn = func}, name, BR_TYPE_FUNCTION);
-    return index;
 }
 
 #endif // BRUTER_AS_HEADER

@@ -3,20 +3,20 @@ load {string};
 load {io};
 
 # {abcdefghijklmnopqrstuvwxyz} 
-    name: str0;
+    {str0} @as name;
 
 # {ABCDEFGHIJKLMNOPQRSTUVWXYZ} 
-    name: str1;
+    {str1} @as name;
 
 # (string.concat str0 str1) 
-    name: c;
+    {c} @as name;
 
 print.string {str.format function will be rewritten soon} 
-    name: a;
+    {a} @as name;
     
 print.string a;
 print.string {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} 
-    name: b;
+    {b} @as name;
 
 print.string c;
 return 0;

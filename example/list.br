@@ -3,22 +3,25 @@ load {list};
 load {io};
 load {type};
 
-# [return ::index 88 ::index]
-    name: ctx;
+# [return @::index 88 @::index]
+    {ctx} @as name;
 
 # [0 ::index 1 ::index]
-    name: cmd;
+    {cmd} @as name;
 
 print.list cmd ctx;
 
 print.int (list.call ctx cmd);
 
-list.unshift [] name: abc print.int;
+list.unshift [] 
+        {abc} @as name 
+    print.int;
 list.push abc 99;
 print.list abc;
 // {we need to type this list as baked to avoid error};
+
 [abc] 
-    name: abc2 
-    type: 6;
+    {abc2} @as name
+    5 @as type;
 
 return 4;

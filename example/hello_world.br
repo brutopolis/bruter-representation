@@ -1,7 +1,8 @@
 load {io};
 load {std};
 load {math};
-# {hello world!} name: str;
+# {hello world!} 
+    {str} @as name;
 print.string str;
 print parser;
 print {math test:} 5 += 20 -= 50 /= 3.7;

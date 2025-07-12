@@ -3,6 +3,6 @@ load {list};
 load {io};
 
 # [5 10]
-    name: test;
+    {test} @as {name};
 print ...test;
 return 0;
