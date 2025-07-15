@@ -1,6 +1,23 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
+(11/07/2025) - version 1.1.1
+
+- this is the actual major update like bruter 0.9.0;
+- br_evaluate e now modular just like br_parse;
+- bruter-representation is now a proper language "hub";
+- new macro BRUTER_AS_SOURCE, it will make bruter.h act like a source file, like bruter-representation.c;
+- new macro BRUTER_AS_HEADER, it will disable all implementation in bruter-representation.h, only declaration and macros will be left;
+- now the comment step completely ignores the next, it also still working as "word commenter" as well;
+- the reuse step can now force creating a new var instead, with $$ prefix: "$$name whatever" or "$$ whatever";
+- the key step now can set type too using syntax: whatever @@type;
+- command delimiter can now be changed from ';' to anything the user wants to;
+- no more <> support in the string splitters;
+- attributes setters implemented, use name: and type: instead of @ and @@;
+- attributes getters implemented, use :name, :type and :index to get them;
+- br_eval now gets the file by himself instead receive parser as argument;
+- some bugs fixed;
+
 (27/06/2025) - version 1.1.0
 
 - updated to deal with bruter 0.9.0;

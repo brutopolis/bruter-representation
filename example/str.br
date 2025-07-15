@@ -2,12 +2,21 @@ load {std};
 load {string};
 load {io};
 
-# {abcdefghijklmnopqrstuvwxyz} @str0;
-# {ABCDEFGHIJKLMNOPQRSTUVWXYZ} @str1;
-# (string.concat str0 str1) @c;
+# {abcdefghijklmnopqrstuvwxyz} 
+    {str0} @as name;
 
-print.string {str.format function will be rewritten soon} @a;
+# {ABCDEFGHIJKLMNOPQRSTUVWXYZ} 
+    {str1} @as name;
+
+# (string.concat str0 str1) 
+    {c} @as name;
+
+print.string {str.format function will be rewritten soon} 
+    {a} @as name;
+    
 print.string a;
-print.string {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} @b;
+print.string {aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa} 
+    {b} @as name;
+
 print.string c;
 return 0;

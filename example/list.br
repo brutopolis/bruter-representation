@@ -1,15 +1,27 @@
 load {std};
 load {list};
 load {io};
+load {type};
 
-# [<return> <88>] @ctx;
-# [<0> <1>] @cmd;
+# [return @::index 88 @::index]
+    {ctx} @as name;
+
+# [0 ::index 1 ::index]
+    {cmd} @as name;
+
+print.list cmd ctx;
 
 print.int (list.call ctx cmd);
 
-list.unshift [] @abc print.int;
+list.unshift [] 
+        {abc} @as name 
+    print.int;
 list.push abc 99;
 print.list abc;
-abc;
+// {we need to type this list as baked to avoid error};
+
+[abc] 
+    {abc2} @as name
+    5 @as type;
 
 return 4;
