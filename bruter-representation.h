@@ -49,6 +49,25 @@ typedef BruterInt (*EvaluatorStep)(BruterList *context, BruterList *parser, Brut
 // bruter spread argument
 #define BR_SPECIAL_RETURN INTPTR_MIN
 
+// receive a context and a list of indexes relative to the context, and call it as a stack
+// the function pointer must have the same type as br_call BruterInt(*)(BruterList*, BruterList*);
+STATIC_INLINE BruterInt     br_call(BruterList *context, BruterList *list);
+
+// contextual call
+STATIC_INLINE BruterInt br_call(BruterList *context, BruterList *list)
+{
+    BruterInt(*func)(BruterList*, BruterList*);
+
+    if (list->size == 0)
+    {
+        printf("BRUTER_ERROR: cannot call an empty list\n");
+        exit(EXIT_FAILURE);
+    }
+
+    func = context->data[list->data[0].i].p;
+    return func(context, list);
+}
+
 // regular function declarations
 STATIC_INLINE BruterValue   br_arg_get(const BruterList *context, const BruterList *args, BruterInt arg_index);
 STATIC_INLINE BruterInt     br_arg_get_int(const BruterList *context, const BruterList *args, BruterInt arg_index);
@@ -511,7 +530,7 @@ STATIC_INLINE BruterInt br_baked_call(BruterList *context, BruterList *compiled)
     for (BruterInt i = 0; i < compiled->size; i++)
     {
         BruterList *args = (BruterList*)context->data[compiled->data[i].i].p;
-        result = bruter_call(context, args);
+        result = br_call(context, args);
         if (result != -1)
         {
             break;

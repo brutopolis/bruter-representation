@@ -1,6 +1,11 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
+(18/07/2025) - version 1.1.1a
+
+- some changes to deal with bruter 0.9.0b;
+- new function br_call, formely known as bruter_call;
+
 (11/07/2025) - version 1.1.1
 
 - this is the actual major update like bruter 0.9.0;
