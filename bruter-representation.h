@@ -11,26 +11,7 @@
 #include <math.h>
 #include <time.h>
 
-#define BR_VERSION "1.1.1"
-
-// we define our own union type, so we can add the step and the eval_step members
-#define BRUTER_MANUAL_UNION 1
-struct BruterList;
-union BruterValue
-{
-    void* p;
-    intptr_t i;
-    uintptr_t u;
-    intptr_t (*fn)(struct BruterList *context, struct BruterList *args);
-    bool (*step)(struct BruterList *context, struct BruterList *parser, struct BruterList *result, struct BruterList *splited_command, intptr_t word_index, intptr_t step_index);
-    intptr_t (*eval_step)(struct BruterList *context, struct BruterList *parser, struct BruterList *args);
-
-    #if INTPTR_MAX == INT64_MAX
-        double f;
-    #else
-        float f;
-    #endif
-};
+#define BR_VERSION "1.1.1a"
 
 #include <bruter.h>
 
@@ -67,6 +48,25 @@ typedef BruterInt (*EvaluatorStep)(BruterList *context, BruterList *parser, Brut
 
 // bruter spread argument
 #define BR_SPECIAL_RETURN INTPTR_MIN
+
+// receive a context and a list of indexes relative to the context, and call it as a stack
+// the function pointer must have the same type as br_call BruterInt(*)(BruterList*, BruterList*);
+STATIC_INLINE BruterInt     br_call(BruterList *context, BruterList *list);
+
+// contextual call
+STATIC_INLINE BruterInt br_call(BruterList *context, BruterList *list)
+{
+    BruterInt(*func)(BruterList*, BruterList*);
+
+    if (list->size == 0)
+    {
+        printf("BRUTER_ERROR: cannot call an empty list\n");
+        exit(EXIT_FAILURE);
+    }
+
+    func = context->data[list->data[0].i].p;
+    return func(context, list);
+}
 
 // regular function declarations
 STATIC_INLINE BruterValue   br_arg_get(const BruterList *context, const BruterList *args, BruterInt arg_index);
@@ -475,7 +475,7 @@ STATIC_INLINE BruterList* br_parse(BruterList *context, BruterList* parser, cons
 
         for (BruterInt j = 0; j < parser->size; j++)
         {
-            ParserStep step = (ParserStep)parser->data[j].step;
+            ParserStep step = (ParserStep)parser->data[j].p;
             if (step(context, parser, result, splited, i, j))
             {
                 // if the step returns true, means it was successful
@@ -530,7 +530,7 @@ STATIC_INLINE BruterInt br_baked_call(BruterList *context, BruterList *compiled)
     for (BruterInt i = 0; i < compiled->size; i++)
     {
         BruterList *args = (BruterList*)context->data[compiled->data[i].i].p;
-        result = bruter_call(context, args);
+        result = br_call(context, args);
         if (result != -1)
         {
             break;
@@ -595,7 +595,7 @@ STATIC_INLINE BruterInt br_evaluate(BruterList *context, BruterList *parser, Bru
     BruterInt result = -1;
     for (BruterInt i = 0; i < evaluator->size; i++)
     {
-        EvaluatorStep step = evaluator->data[i].eval_step;
+        EvaluatorStep step = evaluator->data[i].p;
         result = step(context, parser, args);
         if (result >= 0)
         {
