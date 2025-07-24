@@ -238,7 +238,6 @@ STATIC_INLINE char* br_str_format(const char *format, ...)
     va_list args;
     size_t size;
     char *str = NULL;
-    // This function MUST allow non-literal format strings, so we use a macro to suppress the warning
     va_start(args, format);
     size = (size_t)vsnprintf(NULL, 0, format, args);
     va_end(args);
