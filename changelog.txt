@@ -1,6 +1,10 @@
 
 # br changelog https://github.com/brutopolis/bruter-representation
 
+(26/07/2025) - discontinued
+
+- bruter-representation will be no longer mantained, prefer rawer, it is basically the evolution of the ideas of bruter-representation but rewritten from scratch to fix some design flaws;
+
 (18/07/2025) - version 1.1.1a
 
 - some changes to deal with bruter 0.9.0b;
